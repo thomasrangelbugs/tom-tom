@@ -160,20 +160,21 @@ body.playing #brandHud{display:block}
 #touch .pad-left{
   left:max(6px, var(--safe-l));
   flex-direction:row;
-  flex-wrap:wrap;
-  max-width:160px;
   justify-content:center;
-}
-#touch .pad-left button[data-key="down"]{
-  width:100%;
-  max-width:136px;
-  height:48px;
-  font-size:20px;
 }
 #touch .pad-right{
   right:max(6px, var(--safe-r));
   flex-direction:column;
-  bottom:max(2px, calc(var(--safe-b) + 2px));
+  align-items:flex-end;
+  gap:6px;
+  /* sobe o bloco da direita para caber o ▼ embaixo do pulo */
+  bottom:max(10px, calc(var(--safe-b) + 18px));
+}
+#touch .pad-right-row{
+  display:flex;
+  flex-direction:row;
+  align-items:flex-end;
+  gap:10px;
 }
 #touch button{
   pointer-events:auto;margin:0;width:64px;height:64px;padding:0;font-size:24px;opacity:.92;
@@ -182,6 +183,14 @@ body.playing #brandHud{display:block}
 }
 #touch button:active,#touch button.held{opacity:1;filter:brightness(1.2);transform:scale(.95)}
 #touch .jump{width:72px!important;height:72px!important;background:#134a3aee;color:#fff}
+#touch .crouch{
+  width:44px!important;
+  height:40px!important;
+  font-size:16px!important;
+  border-radius:14px;
+  margin-right:14px; /* alinha sob o botão de pulo */
+  opacity:.88;
+}
 
 @media (pointer:coarse),(max-width:900px){
   body.touch-device.playing #touch{display:block}
@@ -202,7 +211,9 @@ body.playing #brandHud{display:block}
   .volumes{margin:4px}
   #touch button{width:52px;height:52px;font-size:20px}
   #touch .jump{width:60px!important;height:60px!important}
+  #touch .crouch{width:38px!important;height:34px!important;font-size:14px!important;margin-right:11px}
   #touch .pad{gap:8px;padding:6px}
+  #touch .pad-right{bottom:max(8px, calc(var(--safe-b) + 14px))}
 }
 
 body.is-fs{

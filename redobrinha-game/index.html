@@ -32,7 +32,7 @@
         <label>Efeitos <input id="volSfx" type="range" min="0" max="100" value="55"></label>
       </div>
       <small class="desk-only">← → / A D · ↓ / S abaixar · Espaço pular (duplo) · Shift correr · M mutar · F tela cheia</small>
-      <small class="mobile-hint">Celular: ◀▶▼ laterais · ▲ pular (duplo) · ⚡ correr · gire na horizontal</small>
+      <small class="mobile-hint">Celular: ◀▶ esquerda · ⚡▲ direita · ▼ abaixar sob o pulo · gire na horizontal</small>
       <a class="site-cta" href="https://www.redobrai.com/" target="_blank" rel="noopener noreferrer">Conhecer a Redobrai · redobrai.com</a>
     </section>
 
@@ -70,11 +70,13 @@
     <div class="pad pad-left">
       <button type="button" data-key="left" aria-label="Esquerda">◀</button>
       <button type="button" data-key="right" aria-label="Direita">▶</button>
-      <button type="button" data-key="down" aria-label="Abaixar">▼</button>
     </div>
     <div class="pad pad-right">
-      <button type="button" data-key="run" aria-label="Correr">⚡</button>
-      <button type="button" class="jump" data-key="jump" aria-label="Pular">▲</button>
+      <div class="pad-right-row">
+        <button type="button" data-key="run" aria-label="Correr">⚡</button>
+        <button type="button" class="jump" data-key="jump" aria-label="Pular">▲</button>
+      </div>
+      <button type="button" class="crouch" data-key="down" aria-label="Abaixar">▼</button>
     </div>
   </div>
 
