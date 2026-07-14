@@ -10,6 +10,7 @@ OUT = ROOT / "assets" / "sprites"
 FRAME_H = 96
 FRAME_MAX_W = 110
 
+# magic/inspect (prancheta/luneta) vieram cortados na cintura — fora
 ROW_NAMES = [
     "idle_front",
     "run",
@@ -18,8 +19,6 @@ ROW_NAMES = [
     "jump",
     "emotion",
     "think",
-    "magic",
-    "inspect",
 ]
 
 # Faixas detectadas no sheet 840x1024 (fundo preto puro)
@@ -31,8 +30,6 @@ FIXED_BANDS = [
     (467, 556),
     (581, 670),
     (694, 784),
-    (807, 898),
-    (921, 1012),
 ]
 
 def is_sheet_bg(r, g, b, a=255, thr=10):
