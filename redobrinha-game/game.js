@@ -5,7 +5,7 @@ const ui={
   cont:document.querySelector('#continue'),menuFox:document.querySelector('#menuFox'),resultFox:document.querySelector('#resultFox'),
   volMusic:document.querySelector('#volMusic'),volSfx:document.querySelector('#volSfx')
 };
-const keys={left:false,right:false,jump:false,run:false};
+const keys={left:false,right:false,jump:false,run:false,down:false};
 let running=false,level=0,world,player,camera=0,last=0,audio,shake=0,bgm,muted=false;
 let lives=3,bestScore=0,saveData=null,menuAnim=0,waveAnim=0;
 let aiMode=false,aiStuck=0,aiLastX=0;
@@ -66,7 +66,18 @@ const SPR={
 };
 const brandLogo=new Image();brandLogo.src='assets/redobrai-logo.png';
 const brandCorp=new Image();brandCorp.src='assets/redobrai-corp-logo.png';
-const SPRITE_H=100,SPRITE_H_BIG=130;
+const SPRITE_H=100,SPRITE_H_BIG=130,CROUCH_H=56,CROUCH_H_BIG=72;
+const IDLE_POOL=['pocket','think','look','wave','sit','surprise','magic'];
+
+function applyHeight(p,crouch){
+  const want=p.big?(crouch?CROUCH_H_BIG:SPRITE_H_BIG):(crouch?CROUCH_H:SPRITE_H);
+  if(p.h===want&&!!p.crouch===!!crouch)return;
+  const feet=p.y+p.h;
+  p.crouch=!!crouch;
+  p.h=want;
+  p.w=crouch?(p.big?64:62):(p.big?70:56);
+  p.y=feet-p.h;
+}
 
 const themes=[
  {season:'Verão',sky:['#42bce8','#d9f8ff'],ground:'#35844f',soil:'#67492d',accent:'#ffe47c',leaf:'#7bc96f',challenge:'calor'},
@@ -234,7 +245,8 @@ function makePlayer(spawn){
   return{
     x:spawn?.x??100,y:spawn?.y??430,w:56,h:SPRITE_H,vx:0,vy:0,on:false,big:false,inv:0,
     frame:0,face:1,squash:1,landFlash:0,wasOn:false,lastStep:0,idleTime:0,anim:'idle',
-    think:false,checkpoint:spawn?.checkpoint||null,hurtFlash:0,poseT:0,jumpsLeft:2
+    think:false,checkpoint:spawn?.checkpoint||null,hurtFlash:0,poseT:0,jumpsLeft:2,
+    crouch:false,idleMode:'pocket',idleNext:2.2+Math.random()*1.5
   };
 }
 
@@ -246,7 +258,7 @@ function startLevel(opts={}){
   if(opts.keepScore&&saveData&&!aiMode)world.score=saveData.score||0;
   camera=Math.max(0,player.x-W*.36);running=true;shake=0;
   aiStuck=0;aiLastX=player.x;
-  keys.left=keys.right=keys.jump=keys.run=false;
+  keys.left=keys.right=keys.jump=keys.run=keys.down=false;
   ui.start.classList.add('hidden');ui.result.classList.add('hidden');ui.gameover.classList.add('hidden');
   setPlaying(true);
   document.body.classList.toggle('ai-playing',aiMode);
@@ -257,7 +269,7 @@ function startLevel(opts={}){
 function stopAiToMenu(){
   aiMode=false;running=false;setPlaying(false);
   document.body.classList.remove('ai-playing');
-  keys.left=keys.right=keys.jump=keys.run=false;
+  keys.left=keys.right=keys.jump=keys.run=keys.down=false;
   ui.result.classList.add('hidden');ui.gameover.classList.add('hidden');
   ui.start.classList.remove('hidden');music('stop');
 }
@@ -344,9 +356,11 @@ function update(dt){
   if(!running||world.state!=='play')return;
   if(aiMode)aiThink(dt);
   let p=player,t=world.t;
-  const wantSprint=keys.run;
-  const accel=wantSprint?2100:1600;
-  const maxSp=wantSprint?460:340;
+  const wantCrouch=!!keys.down&&p.on&&!keys.jump;
+  applyHeight(p,wantCrouch);
+  const wantSprint=keys.run&&!p.crouch;
+  const accel=p.crouch?900:(wantSprint?2100:1600);
+  const maxSp=p.crouch?140:(wantSprint?460:340);
   const ice=p.on&&world.platforms.some(b=>b.ice&&p.x+p.w>b.x&&p.x<b.x+b.w&&Math.abs(p.y+p.h-b.y)<6);
   const friction=ice?Math.pow(.25,dt):Math.pow(.0009,dt);
   const windForce=(t.wind||0)*(t.challenge==='vento'?38:22);
@@ -359,6 +373,7 @@ function update(dt){
   if(p.on)p.jumpsLeft=2;
   if(keys.jump&&p.jumpsLeft>0){
     const midAir=!p.on;
+    applyHeight(p,false);
     p.jumpsLeft--;
     // Pulo do chão um pouco mais alto; duplo um pouco mais fraco, mas ainda decisivo
     p.vy=midAir?(wantSprint?-700:-660):(wantSprint?-800:-740);
@@ -409,19 +424,29 @@ function update(dt){
   const moving=p.on&&Math.abs(p.vx)>(ice?12:26);
   const airborne=!p.on;
   if(p.landFlash>0){p.landFlash=Math.max(0,p.landFlash-dt);p.anim='land'}
-  else if(airborne){
+  else if(p.crouch&&p.on){
+    p.anim=Math.abs(p.vx)>18?'crawl':'crouch';
+    p.frame+=dt*(Math.abs(p.vx)>18?8:3);
+    p.idleTime=0;p.think=false;
+  }else if(airborne){
     p.anim=p.vy<-80?'jumpUp':p.vy>120?'jumpDown':'jumpPeak';
     p.frame+=dt*8;p.idleTime=0;p.think=false;
   }else if(moving){
     p.anim=wantSprint||Math.abs(p.vx)>300?'run':'walk';
     let prev=p.frame;p.frame+=Math.abs(p.vx)*dt/(p.anim==='run'?16:20);
-    // poeira visual sem SFX de passo
     if(Math.floor(p.frame)%2!==Math.floor(prev)%2)dust(p.x+p.w*(p.face>0?.35:.65),p.y+p.h,p.face);
-    p.idleTime=0;p.think=false;
+    p.idleTime=0;p.think=false;p.idleNext=1.8+Math.random()*1.2;
   }else{
     p.idleTime+=dt;p.frame+=dt;
-    if(p.idleTime>2.4){p.anim='think';p.think=true}
-    else p.anim='idle';
+    if(p.idleTime>=p.idleNext){
+      p.idleTime=0;
+      p.idleNext=2.4+Math.random()*2.8;
+      let next=IDLE_POOL[Math.floor(Math.random()*IDLE_POOL.length)];
+      if(next===p.idleMode)next=IDLE_POOL[(IDLE_POOL.indexOf(next)+1+(Math.random()*4|0))%IDLE_POOL.length];
+      p.idleMode=next;p.poseT=0;
+    }
+    p.anim=p.idleMode||'pocket';
+    p.think=p.anim==='think';
   }
   p.squash+=(1-p.squash)*Math.min(1,dt*12);
   p.inv=Math.max(0,p.inv-dt);p.hurtFlash=Math.max(0,p.hurtFlash-dt);p.poseT+=dt;
@@ -440,7 +465,7 @@ function update(dt){
     m.t=(m.t||0)+dt;
     if(!m.got&&rect(p,{x:m.x,y:m.y,w:44,h:38})){
       m.got=true;
-      if(!p.big){p.big=true;p.y-=30;p.h=SPRITE_H_BIG;p.w=70}
+      if(!p.big){p.big=true;applyHeight(p,false);p.y-=30;p.h=SPRITE_H_BIG;p.w=70}
       world.score+=500;sfx('power');p.anim='magic';p.poseT=0;
       burst(m.x+22,m.y+18,18,['#48f3a9','#fff','#a8f3ff'],300);
     }
@@ -545,7 +570,7 @@ function hurt(fall){
   if(player.inv>0)return;
   shake=.5;player.hurtFlash=.6;player.anim='hurt';player.poseT=0;sfx('hurt');
   if(player.big&&!fall){
-    player.big=false;player.h=SPRITE_H;player.w=56;player.inv=1.8;
+    player.big=false;applyHeight(player,false);player.h=SPRITE_H;player.w=56;player.inv=1.8;
     burst(player.x+player.w/2,player.y+player.h/2,12,['#48f3a9','#fff'],180);
     return;
   }
@@ -593,17 +618,26 @@ function pickAnimFrame(){
   const p=player;
   // Short special poses
   if(p.anim==='hurt'&&p.poseT<.45)return SPR.emotion[Math.min(1,Math.floor(p.poseT*6))%2];
-  if(p.anim==='magic'&&p.poseT<.7)return SPR.magic[Math.floor(p.poseT*10)%SPR.magic.length];
-  if(p.anim==='inspect'&&p.poseT<1.1)return SPR.inspect[Math.floor(p.poseT*7)%SPR.inspect.length];
+  if(p.anim==='magic'&&p.poseT<.7&&p.idleMode!=='magic')return SPR.magic[Math.floor(p.poseT*10)%SPR.magic.length];
+  if(p.anim==='inspect'&&p.poseT<1.1&&p.idleMode!=='look')return SPR.inspect[Math.floor(p.poseT*7)%SPR.inspect.length];
   if(p.landFlash>0)return SPR.jump[p.landFlash>.1?3:4]||SPR.jump[3];
 
+  if(p.anim==='crouch'||p.anim==='crawl'){
+    return SPR.jump[Math.floor(p.frame*2)%2===0?0:3]||SPR.jump[0];
+  }
   if(p.anim==='jumpUp')return SPR.jump[1]||SPR.jump[0];
   if(p.anim==='jumpPeak')return SPR.jump[2]||SPR.jump[1];
   if(p.anim==='jumpDown')return SPR.jump[0]||SPR.jump[3];
   if(p.anim==='run')return SPR.run[Math.floor(Math.abs(p.frame))%SPR.run.length];
   if(p.anim==='walk')return SPR.walk[Math.floor(Math.abs(p.frame))%SPR.walk.length];
+
+  // Idles variados quando parada
   if(p.anim==='think')return SPR.emotion[4+Math.floor(p.poseT*2)%3];
-  // Lateral idle dedicado (mãos no bolso / pose confiante)
+  if(p.anim==='look')return SPR.inspect[Math.floor(p.poseT*4)%SPR.inspect.length];
+  if(p.anim==='wave')return SPR.wave[Math.floor(p.poseT*5)%SPR.wave.length];
+  if(p.anim==='sit')return SPR.jump[4]||SPR.emotion[7];
+  if(p.anim==='surprise')return SPR.emotion[Math.floor(p.poseT*6)%2];
+  if(p.anim==='magic')return SPR.magic[Math.floor(p.poseT*4)%SPR.magic.length];
   const idleSet=[SPR.emotion[2],SPR.emotion[3],SPR.emotion[7]];
   return idleSet[Math.floor(p.poseT*1.2)%idleSet.length];
 }
@@ -919,12 +953,12 @@ function loop(ts){
 }
 
 addEventListener('keydown',e=>{
-  if(aiMode&&['ArrowLeft','a','A','ArrowRight','d','D','ArrowUp','w','W',' ','Shift'].includes(e.key)){
-    // qualquer input manual cancela o piloto automático
+  if(aiMode&&['ArrowLeft','a','A','ArrowRight','d','D','ArrowUp','w','W',' ','Shift','ArrowDown','s','S'].includes(e.key)){
     aiMode=false;document.body.classList.remove('ai-playing');
   }
   if(['ArrowLeft','a','A'].includes(e.key))keys.left=true;
   if(['ArrowRight','d','D'].includes(e.key))keys.right=true;
+  if(['ArrowDown','s','S'].includes(e.key)){keys.down=true;e.preventDefault()}
   if(['ArrowUp','w','W',' '].includes(e.key)){keys.jump=true;e.preventDefault()}
   if(e.key==='Shift')keys.run=true;
   if(e.key==='m'||e.key==='M')setMute(!muted);
@@ -938,6 +972,7 @@ addEventListener('keydown',e=>{
 addEventListener('keyup',e=>{
   if(['ArrowLeft','a','A'].includes(e.key))keys.left=false;
   if(['ArrowRight','d','D'].includes(e.key))keys.right=false;
+  if(['ArrowDown','s','S'].includes(e.key))keys.down=false;
   if(e.key==='Shift')keys.run=false;
 });
 // Multi-touch friendly controls

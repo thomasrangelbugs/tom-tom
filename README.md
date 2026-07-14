@@ -65,6 +65,7 @@ Abra `http://localhost:8080`.
 | PC | Celular |
 |---|---|
 | ← → / A D andar | ◀ ▶ na faixa esquerda |
+| ↓ / S abaixar | ▼ abaixar |
 | Shift correr | ⚡ na faixa direita |
 | Espaço / W / ↑ pular (duplo no ar) | ▲ na faixa direita (duplo no ar) |
 | M mutar | Botão ♪ |

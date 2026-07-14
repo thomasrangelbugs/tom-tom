@@ -160,6 +160,15 @@ body.playing #brandHud{display:block}
 #touch .pad-left{
   left:max(6px, var(--safe-l));
   flex-direction:row;
+  flex-wrap:wrap;
+  max-width:160px;
+  justify-content:center;
+}
+#touch .pad-left button[data-key="down"]{
+  width:100%;
+  max-width:136px;
+  height:48px;
+  font-size:20px;
 }
 #touch .pad-right{
   right:max(6px, var(--safe-r));
