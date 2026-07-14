@@ -63,15 +63,14 @@ const SPR={
   wave:loadSeries('wave',4),
   jump:loadSeries('jump',5),
   emotion:loadSeries('emotion',8),
-  think:loadSeries('think',6),
-  magic:loadSeries('magic',6),
-  inspect:loadSeries('inspect',6)
+  think:loadSeries('think',6)
+  // magic/inspect (prancheta/luneta) vieram cortados na cintura — não usar
 };
 // Altura de desenho alinhada aos frames (96px no slice)
 const SPRITE_H=96,SPRITE_H_BIG=120,CROUCH_H=78,CROUCH_H_BIG=98;
 const SPRITE_REF_H=96; // naturalHeight padronizado no slice
-// Todas as ações paradas — frames re-normalizados (mesma escala, pés na base)
-const IDLE_POOL=['pocket','think','wave','look','sit','magic','cheer','flex','surprise'];
+// Só idles de corpo inteiro
+const IDLE_POOL=['pocket','think','wave','flex','surprise'];
 
 function applyHeight(p,crouch){
   const want=p.big?(crouch?CROUCH_H_BIG:SPRITE_H_BIG):(crouch?CROUCH_H:SPRITE_H);
@@ -610,7 +609,7 @@ function update(dt){
     if(!c.got&&Math.hypot(p.x+p.w/2-c.x,p.y+p.h/2-c.y)<52){
       c.got=true;world.coinsGot++;world.score+=100;sfx('coin');
       burst(c.x,c.y,10,['#6ec8ff','#9ad8ff','#ffffff','#3a8fff'],220);
-      p.anim='magic';p.poseT=0;
+      p.anim='wave';p.poseT=0;
     }
   }
   updateEnemies(dt,t);
@@ -619,7 +618,7 @@ function update(dt){
     if(!m.got&&rect(p,{x:m.x,y:m.y,w:44,h:38})){
       m.got=true;
       if(!p.big){p.big=true;applyHeight(p,false);p.y-=30;p.h=SPRITE_H_BIG;p.w=70}
-      world.score+=500;sfx('power');p.anim='magic';p.poseT=0;
+      world.score+=500;sfx('power');p.anim='wave';p.poseT=0;
       burst(m.x+22,m.y+18,22,['#6ec8ff','#fff','#9ad8ff','#3a8fff'],320);
     }
   }
@@ -627,7 +626,7 @@ function update(dt){
     if(!cp.got&&Math.abs(p.x+p.w/2-cp.x)<40&&p.y+p.h<=cp.y+8&&p.y+p.h>cp.y-120){
       cp.got=true;p.checkpoint={x:cp.x-20,y:cp.y,id:cp.id,score:world.score,coinsGot:world.coinsGot,worldSeed:world.worldSeed};
       sfx('checkpoint');burst(cp.x,cp.y-60,16,['#4affb0','#ffe47c','#fff'],200);
-      p.anim='inspect';p.poseT=0;saveProgress({checkpoint:p.checkpoint});
+      p.anim='wave';p.poseT=0;saveProgress({checkpoint:p.checkpoint});
     }
   }
 
@@ -778,8 +777,6 @@ function pickAnimFrame(){
   const p=player;
   // Short special poses
   if(p.anim==='hurt'&&p.poseT<.45)return SPR.emotion[Math.min(1,Math.floor(p.poseT*6))%2];
-  if(p.anim==='magic'&&p.poseT<.7&&p.idleMode!=='magic')return SPR.magic[Math.floor(p.poseT*10)%SPR.magic.length];
-  if(p.anim==='inspect'&&p.poseT<1.1&&p.idleMode!=='look')return SPR.inspect[Math.floor(p.poseT*7)%SPR.inspect.length];
   if(p.landFlash>0)return SPR.jump[p.landFlash>.1?3:4]||SPR.jump[3];
 
   if(p.anim==='crouch')return SPR.emotion[4]||SPR.jump[3];
@@ -790,12 +787,9 @@ function pickAnimFrame(){
   if(p.anim==='run')return SPR.run[Math.floor(Math.abs(p.frame))%SPR.run.length];
   if(p.anim==='walk')return SPR.walk[Math.floor(Math.abs(p.frame))%SPR.walk.length];
 
-  // Idles variados (assets com pés alinhados)
+  // Idles de corpo inteiro
   if(p.anim==='think')return SPR.think[Math.floor(p.poseT*2.5)%SPR.think.length];
-  if(p.anim==='look')return SPR.inspect[Math.floor(p.poseT*4.5)%SPR.inspect.length];
   if(p.anim==='wave')return SPR.wave[Math.floor(p.poseT*5)%SPR.wave.length];
-  if(p.anim==='sit'||p.anim==='magic')return SPR.magic[Math.floor(p.poseT*3.5)%SPR.magic.length];
-  if(p.anim==='cheer')return SPR.inspect[Math.min(SPR.inspect.length-1,Math.floor(p.poseT*3.5))];
   if(p.anim==='flex'){
     const set=[SPR.emotion[4],SPR.emotion[5],SPR.emotion[6],SPR.emotion[7]];
     return set[Math.floor(p.poseT*2.2)%set.length];
@@ -1019,24 +1013,13 @@ function drawPlayer(){
   if(p.inv&&Math.floor(p.inv*10)%2)return;
   let frame=pickAnimFrame();
   const refH=SPRITE_REF_H;
-  // Prancheta/luneta no sheet são busto (cintura pra cima) — não esticar como corpo inteiro
-  const bustPose=['sit','magic','look','cheer'].includes(p.anim);
-  let scale,drawW,drawH,yLift=0;
-  if(bustPose){
-    drawH=p.h*.58*p.squash;
-    drawW=drawH*((frame?.naturalWidth||70)/(frame?.naturalHeight||refH));
-    yLift=p.h*.42; // base do busto na altura da cintura
-    const maxW=p.h*1.1*p.squash;
-    if(drawW>maxW){const k=maxW/drawW;drawW*=k;drawH*=k}
-  }else{
-    scale=(p.h*p.squash)/refH;
-    drawW=(frame?.naturalWidth||60)*scale;
-    drawH=refH*scale;
-    const maxW=p.h*1.35*p.squash;
-    if(drawW>maxW){scale=maxW/(frame.naturalWidth||60);drawW=maxW;drawH=refH*scale}
-  }
+  let scale=(p.h*p.squash)/refH;
+  let drawW=(frame?.naturalWidth||60)*scale;
+  let drawH=refH*scale;
+  const maxW=p.h*1.35*p.squash;
+  if(drawW>maxW){scale=maxW/(frame.naturalWidth||60);drawW=maxW;drawH=refH*scale}
   let bob=(p.anim==='walk'||p.anim==='run')?Math.sin(p.frame*Math.PI)*.5*Math.min(1,Math.abs(p.vx)/200)*4:0;
-  let ox=p.x+p.w/2,oy=p.y+p.h-yLift;
+  let ox=p.x+p.w/2,oy=p.y+p.h;
   X.save();X.translate(ox,oy-bob);
   // walk/crawl sprites olham pra esquerda; o resto olha pra direita
   const artFacesLeft=p.anim==='walk'||p.anim==='crawl';
@@ -1135,7 +1118,7 @@ function victory(){
     ui.title.textContent=`Fase ${level+1} concluída!`;
     ui.score.innerHTML=`Raios: <b>${world.coinsGot}</b><br>Pontuação: <b>${world.score}</b><br>Vidas: <b>${lives}</b><br>Clima: <b>${world.t.season} · ${world.t.dayPart||''} · ${world.t.weather}</b>`;
     ui.result.classList.remove('hidden');waveAnim=0;
-    if(SPR.inspect[5]?.complete)ui.resultFox.src=SPR.inspect[5].src;
+    if(SPR.wave[0]?.complete)ui.resultFox.src=SPR.wave[0].src;
   },900);
 }
 
