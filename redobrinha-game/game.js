@@ -69,8 +69,9 @@ const SPR={
 // Altura de desenho alinhada aos frames (96px no slice)
 const SPRITE_H=96,SPRITE_H_BIG=120,CROUCH_H=78,CROUCH_H_BIG=98;
 const SPRITE_REF_H=96; // naturalHeight padronizado no slice
-// Só idles de corpo inteiro
-const IDLE_POOL=['pocket','think','wave','flex','surprise'];
+// Ações especiais (entre elas fica 3s só piscando)
+const IDLE_ACTIONS=['think','wave','flex','surprise'];
+const IDLE_REST=3;
 
 function applyHeight(p,crouch){
   const want=p.big?(crouch?CROUCH_H_BIG:SPRITE_H_BIG):(crouch?CROUCH_H:SPRITE_H);
@@ -269,7 +270,7 @@ function makePlayer(spawn){
     x:spawn?.x??100,y:spawn?.y??430,w:56,h:SPRITE_H,vx:0,vy:0,on:false,big:false,inv:0,
     frame:0,face:1,squash:1,landFlash:0,wasOn:false,lastStep:0,idleTime:0,anim:'idle',
     think:false,checkpoint:spawn?.checkpoint||null,hurtFlash:0,poseT:0,jumpsLeft:2,
-    crouch:false,idleMode:'pocket',idleNext:2.2+Math.random()*1.5,
+    crouch:false,idleMode:'pocket',idlePhase:'rest',idleNext:IDLE_REST,
     dying:false,dieT:0,respawnAt:null
   };
 }
@@ -587,15 +588,22 @@ function update(dt){
     p.anim=wantSprint||Math.abs(p.vx)>300?'run':'walk';
     let prev=p.frame;p.frame+=Math.abs(p.vx)*dt/(p.anim==='run'?16:20);
     if(Math.floor(p.frame)%2!==Math.floor(prev)%2)dust(p.x+p.w*(p.face>0?.35:.65),p.y+p.h,p.face);
-    p.idleTime=0;p.think=false;p.idleNext=1.8+Math.random()*1.2;
+    // ao parar de novo: 3s só piscando antes de qualquer ação
+    p.idleTime=0;p.think=false;p.idleMode='pocket';p.idlePhase='rest';p.idleNext=IDLE_REST;p.poseT=0;
   }else{
     p.idleTime+=dt;p.frame+=dt;
     if(p.idleTime>=p.idleNext){
-      p.idleTime=0;
-      p.idleNext=1.8+Math.random()*2.2;
-      let next=IDLE_POOL[Math.floor(Math.random()*IDLE_POOL.length)];
-      if(next===p.idleMode)next=IDLE_POOL[(IDLE_POOL.indexOf(next)+1+(Math.random()*3|0))%IDLE_POOL.length];
-      p.idleMode=next;p.poseT=0;
+      p.idleTime=0;p.poseT=0;
+      if(p.idlePhase!=='action'){
+        // depois do descanso: entra numa ação
+        let next=IDLE_ACTIONS[Math.floor(Math.random()*IDLE_ACTIONS.length)];
+        if(next===p.idleMode)next=IDLE_ACTIONS[(IDLE_ACTIONS.indexOf(next)+1)%IDLE_ACTIONS.length];
+        p.idleMode=next;p.idlePhase='action';
+        p.idleNext=next==='wave'?1.4:next==='think'?2.2:1.8;
+      }else{
+        // entre ações: volta a ficar parado piscando 3s
+        p.idleMode='pocket';p.idlePhase='rest';p.idleNext=IDLE_REST;
+      }
     }
     p.anim=p.idleMode||'pocket';
     p.think=p.anim==='think';
