@@ -70,8 +70,8 @@ const SPR={
 // Altura de desenho alinhada aos frames (96px no slice)
 const SPRITE_H=96,SPRITE_H_BIG=120,CROUCH_H=78,CROUCH_H_BIG=98;
 const SPRITE_REF_H=96; // naturalHeight padronizado no slice
-// Todos os sets de idle do spritesheet (bolso, pensar, acenar, lupa, mapa, poses…)
-const IDLE_POOL=['pocket','think','wave','look','sit','magic','cheer','flex','surprise'];
+// Só poses em pé alinhadas ao chão (lupa/mapa/emotion ficavam grandes ou “flutuando”)
+const IDLE_POOL=['pocket','think','wave'];
 
 function applyHeight(p,crouch){
   const want=p.big?(crouch?CROUCH_H_BIG:SPRITE_H_BIG):(crouch?CROUCH_H:SPRITE_H);
@@ -593,10 +593,9 @@ function update(dt){
     p.idleTime+=dt;p.frame+=dt;
     if(p.idleTime>=p.idleNext){
       p.idleTime=0;
-      // troca de pose mais frequente pra mostrar as ações paradas
-      p.idleNext=1.4+Math.random()*1.8;
+      p.idleNext=2.2+Math.random()*2.4;
       let next=IDLE_POOL[Math.floor(Math.random()*IDLE_POOL.length)];
-      if(next===p.idleMode)next=IDLE_POOL[(IDLE_POOL.indexOf(next)+1+(Math.random()*3|0))%IDLE_POOL.length];
+      if(next===p.idleMode)next=IDLE_POOL[(IDLE_POOL.indexOf(next)+1)%IDLE_POOL.length];
       p.idleMode=next;p.poseT=0;
     }
     p.anim=p.idleMode||'pocket';
@@ -791,23 +790,10 @@ function pickAnimFrame(){
   if(p.anim==='run')return SPR.run[Math.floor(Math.abs(p.frame))%SPR.run.length];
   if(p.anim==='walk')return SPR.walk[Math.floor(Math.abs(p.frame))%SPR.walk.length];
 
-  // Idles — usa todas as filas do spritesheet
-  if(p.anim==='think')return SPR.think[Math.floor(p.poseT*3)%SPR.think.length];
-  if(p.anim==='look')return SPR.inspect[Math.floor(p.poseT*5)%SPR.inspect.length];
-  if(p.anim==='wave')return SPR.wave[Math.floor(p.poseT*6)%SPR.wave.length];
-  if(p.anim==='sit'||p.anim==='magic')return SPR.magic[Math.floor(p.poseT*4)%SPR.magic.length];
-  if(p.anim==='cheer'){
-    // lupa → joinha (último frame do inspect)
-    const i=Math.min(SPR.inspect.length-1,Math.floor(p.poseT*4));
-    return SPR.inspect[i];
-  }
-  if(p.anim==='flex'){
-    // poses paradas da faixa emotion (mão na cabeça / se levanta)
-    const set=[SPR.emotion[4],SPR.emotion[5],SPR.emotion[6],SPR.emotion[7]];
-    return set[Math.floor(p.poseT*2.5)%set.length];
-  }
-  if(p.anim==='surprise')return SPR.emotion[Math.floor(p.poseT*5)%4];
-  if(p.anim==='pocket')return SPR.idleFront[Math.floor(p.poseT*3)%SPR.idleFront.length];
+  // Idles em pé (pés colados no chão)
+  if(p.anim==='think')return SPR.think[Math.floor(p.poseT*2.4)%SPR.think.length];
+  if(p.anim==='wave')return SPR.wave[Math.floor(p.poseT*5)%SPR.wave.length];
+  if(p.anim==='pocket')return SPR.idleFront[Math.floor(p.poseT*2.5)%SPR.idleFront.length];
   return SPR.idleFront[Math.floor(p.poseT*2)%SPR.idleFront.length];
 }
 
