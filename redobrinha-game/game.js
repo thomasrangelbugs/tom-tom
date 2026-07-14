@@ -580,10 +580,10 @@ function update(dt){
   else if(p.crouch&&p.on){
     p.anim=Math.abs(p.vx)>18?'crawl':'crouch';
     p.frame+=dt*(Math.abs(p.vx)>18?8:3);
-    p.idleTime=0;p.think=false;
+    p.idleTime=0;p.think=false;p.idleMode='pocket';p.idlePhase='rest';p.idleNext=IDLE_REST;
   }else if(airborne){
     p.anim=p.vy<-80?'jumpUp':p.vy>120?'jumpDown':'jumpPeak';
-    p.frame+=dt*8;p.idleTime=0;p.think=false;
+    p.frame+=dt*8;p.idleTime=0;p.think=false;p.idleMode='pocket';p.idlePhase='rest';p.idleNext=IDLE_REST;
   }else if(moving){
     p.anim=wantSprint||Math.abs(p.vx)>300?'run':'walk';
     let prev=p.frame;p.frame+=Math.abs(p.vx)*dt/(p.anim==='run'?16:20);
