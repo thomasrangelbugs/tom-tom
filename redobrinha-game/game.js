@@ -7,6 +7,8 @@ const ui={
 };
 const keys={left:false,right:false,jump:false,run:false,down:false};
 let running=false,level=0,world,player,camera=0,last=0,audio,shake=0,bgm,muted=false;
+const BGM_TRACKS=['assets/trilha.mp3','assets/trilha2.mp3'];
+let bgmTrack=Math.random()<.5?0:1;
 let lives=3,bestScore=0,saveData=null,menuAnim=0,waveAnim=0;
 let aiMode=false,aiStuck=0,aiLastX=0,aiJumpCd=0,aiBackoff=0,aiPatience=0;
 const isTouchDevice=matchMedia('(pointer:coarse)').matches||matchMedia('(max-width:900px)').matches||('ontouchstart' in window);
@@ -151,7 +153,17 @@ function saveProgress(extra={}){
 function ensureAudio(){
   audio??=new(window.AudioContext||window.webkitAudioContext)();
   if(audio.state==='suspended')audio.resume();
-  if(!bgm){bgm=new Audio('assets/trilha.mp3');bgm.loop=true;bgm.preload='auto'}
+  if(!bgm){
+    bgm=new Audio(BGM_TRACKS[bgmTrack]);
+    bgm.loop=false;
+    bgm.preload='auto';
+    bgm.addEventListener('ended',()=>{
+      bgmTrack=(bgmTrack+1)%BGM_TRACKS.length;
+      bgm.src=BGM_TRACKS[bgmTrack];
+      bgm.volume=muted?0:vols.music;
+      if(running)bgm.play().catch(()=>{});
+    });
+  }
   bgm.volume=muted?0:vols.music;
 }
 const sfxBank={};
@@ -170,9 +182,19 @@ function setMute(on){
 }
 function music(type){
   ensureAudio();bgm.volume=muted?0:vols.music;
-  if(type==='play'){if(bgm.paused){bgm.currentTime=0}bgm.play().catch(()=>{})}
+  if(type==='play'){
+    if(bgm.paused){
+      bgm.src=BGM_TRACKS[bgmTrack];
+      try{bgm.currentTime=0}catch{}
+    }
+    bgm.play().catch(()=>{});
+  }
   else if(type==='victory'){bgm.volume=muted?0:vols.music*.4;sfx('victory')}
-  else if(type==='stop'&&bgm&&!bgm.paused)bgm.pause();
+  else if(type==='stop'){
+    if(bgm&&!bgm.paused)bgm.pause();
+    // próxima partida começa na outra trilha
+    bgmTrack=(bgmTrack+1)%BGM_TRACKS.length;
+  }
 }
 
 function makeLevel(fromCheckpoint){
