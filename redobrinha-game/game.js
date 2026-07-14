@@ -64,6 +64,7 @@ const SPR={
   inspect:loadSeries('inspect',6)
 };
 const brandLogo=new Image();brandLogo.src='assets/redobrai-logo.png';
+const brandCorp=new Image();brandCorp.src='assets/redobrai-corp-logo.png';
 const SPRITE_H=100,SPRITE_H_BIG=130;
 
 const themes=[
@@ -705,17 +706,30 @@ function drawWeather(t){
 
 function drawHud(t){
   let elapsed=(performance.now()-world.start)/1000;
-  X.fillStyle='#06151dcc';round(25,20,700,78,18);
-  X.fillStyle='#fff';X.font='800 22px sans-serif';X.fillText(`FASE ${level+1}`,48,48);
-  X.fillStyle='#ff7a9a';X.fillText(`♥ ${lives}`,160,48);
-  X.fillStyle='#69f6ba';X.fillText(`◆ ${world.coinsGot}`,240,48);
-  X.fillStyle='#fff';X.fillText(`${world.score.toString().padStart(6,'0')}`,340,48);
+  const barX=25,barY=20,barH=78;
+  const logoH=44;
+  const logoW=brandCorp.complete&&brandCorp.naturalWidth
+    ? Math.min(168, Math.max(110, brandCorp.naturalWidth/brandCorp.naturalHeight*logoH))
+    : 140;
+  const barW=Math.max(760, 48+logoW+520);
+  X.fillStyle='#06151dcc';round(barX,barY,barW,barH,18);
+
+  // Logo Redobrai dentro do bloco da fase
+  if(brandCorp.complete){
+    X.drawImage(brandCorp, barX+12, barY+(barH-logoH)/2, logoW, logoH);
+  }
+
+  const textX=barX+12+logoW+14;
+  X.fillStyle='#fff';X.font='800 22px sans-serif';X.fillText(`FASE ${level+1}`,textX,48);
+  X.fillStyle='#ff7a9a';X.fillText(`♥ ${lives}`,textX+120,48);
+  X.fillStyle='#69f6ba';X.fillText(`◆ ${world.coinsGot}`,textX+200,48);
+  X.fillStyle='#fff';X.fillText(`${world.score.toString().padStart(6,'0')}`,textX+300,48);
   X.fillStyle='#bfe5e4';X.font='600 15px sans-serif';
   const chal=t.ice?'Gelo escorregadio':t.challenge==='vento'?'Vento forte':t.leafStorm?'Tempestade de folhas':t.heat?'Calor intenso':'—';
-  X.fillText(`${t.season} · ${t.night?'Noite':'Dia'} · ${t.weather} · ${chal}`,48,74);
+  X.fillText(`${t.season} · ${t.night?'Noite':'Dia'} · ${t.weather} · ${chal}`,textX,74);
   X.textAlign='right';X.fillStyle='#fff';X.font='800 22px sans-serif';
-  X.fillText(`${Math.max(0,Math.ceil(world.time-elapsed))}s`,700,58);X.textAlign='left';
-  if(player.checkpoint){X.fillStyle='#4affb0';X.font='700 14px sans-serif';X.fillText('⚑ checkpoint',560,48)}
+  X.fillText(`${Math.max(0,Math.ceil(world.time-elapsed))}s`,barX+barW-18,58);X.textAlign='left';
+  if(player.checkpoint){X.fillStyle='#4affb0';X.font='700 14px sans-serif';X.fillText('⚑ checkpoint',textX+430,48)}
 }
 function round(x,y,w,h,r){X.beginPath();X.roundRect(x,y,w,h,r);X.fill()}
 

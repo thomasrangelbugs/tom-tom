@@ -70,25 +70,11 @@ small{color:#9bb3ba;max-width:640px;font-size:clamp(11px,2vw,14px);padding:0 12p
   position:fixed;
   top:max(10px,var(--safe-t));
   right:max(10px,var(--safe-r));
-  left:max(10px,var(--safe-l));
   z-index:30;
   display:flex;gap:8px;align-items:center;justify-content:flex-end;
   pointer-events:none;
 }
 #hudChrome > *{pointer-events:auto}
-#brandHud{
-  margin-right:auto;
-  display:inline-flex;align-items:center;
-  padding:4px 8px;border-radius:12px;
-  background:#050b10cc;border:1px solid #4ff5b033;
-  box-shadow:0 6px 16px #0007;text-decoration:none;
-  transition:.2s;
-}
-#brandHud:hover{filter:brightness(1.12);transform:translateY(-1px);border-color:#4ff5b066}
-#brandHud img{
-  display:block;height:28px;width:auto;max-width:min(160px,38vw);
-  object-fit:contain;
-}
 
 #hudChrome button{
   width:48px;height:48px;padding:0;margin:0;border-radius:14px;font-size:20px;opacity:.9;
@@ -96,6 +82,22 @@ small{color:#9bb3ba;max-width:640px;font-size:clamp(11px,2vw,14px);padding:0 12p
 }
 #mute.muted{color:#8aa;opacity:.55}
 #fs.active{color:#fff;background:#134a3a}
+
+/* Hit area clicavel sobre a logo no bloco da fase (canvas 1280x720) */
+#brandHud{
+  display:none;
+  position:absolute;
+  left:calc(37 / 1280 * 100%);
+  top:calc(28 / 720 * 100%);
+  width:calc(168 / 1280 * 100%);
+  height:calc(56 / 720 * 100%);
+  z-index:6;
+  border-radius:10px;
+  text-indent:-9999px;
+  overflow:hidden;
+  background:transparent;
+}
+body.playing #brandHud{display:block}
 
 .brand-link-menu{
   display:inline-flex;align-items:center;justify-content:center;
@@ -117,7 +119,6 @@ small{color:#9bb3ba;max-width:640px;font-size:clamp(11px,2vw,14px);padding:0 12p
 .site-cta:hover{background:#134a3a88;transform:translateY(-1px)}
 @media (max-height:420px){
   .brand-link-menu img{height:28px}
-  #brandHud img{height:22px}
   .site-cta{margin-top:4px;padding:6px 10px}
 }
 
@@ -200,5 +201,4 @@ body.is-fs #shell{
 body.is-fs #hudChrome{
   top:max(8px, var(--safe-t));
   right:max(8px, var(--safe-r));
-  left:max(8px, var(--safe-l));
 }
