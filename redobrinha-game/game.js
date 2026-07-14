@@ -70,8 +70,8 @@ const SPR={
 // Altura de desenho alinhada aos frames (96px no slice)
 const SPRITE_H=96,SPRITE_H_BIG=120,CROUCH_H=78,CROUCH_H_BIG=98;
 const SPRITE_REF_H=96; // naturalHeight padronizado no slice
-// Só poses em pé alinhadas ao chão (lupa/mapa/emotion ficavam grandes ou “flutuando”)
-const IDLE_POOL=['pocket','think','wave'];
+// Todas as ações paradas — frames re-normalizados (mesma escala, pés na base)
+const IDLE_POOL=['pocket','think','wave','look','sit','magic','cheer','flex','surprise'];
 
 function applyHeight(p,crouch){
   const want=p.big?(crouch?CROUCH_H_BIG:SPRITE_H_BIG):(crouch?CROUCH_H:SPRITE_H);
@@ -593,9 +593,9 @@ function update(dt){
     p.idleTime+=dt;p.frame+=dt;
     if(p.idleTime>=p.idleNext){
       p.idleTime=0;
-      p.idleNext=2.2+Math.random()*2.4;
+      p.idleNext=1.8+Math.random()*2.2;
       let next=IDLE_POOL[Math.floor(Math.random()*IDLE_POOL.length)];
-      if(next===p.idleMode)next=IDLE_POOL[(IDLE_POOL.indexOf(next)+1)%IDLE_POOL.length];
+      if(next===p.idleMode)next=IDLE_POOL[(IDLE_POOL.indexOf(next)+1+(Math.random()*3|0))%IDLE_POOL.length];
       p.idleMode=next;p.poseT=0;
     }
     p.anim=p.idleMode||'pocket';
@@ -790,9 +790,17 @@ function pickAnimFrame(){
   if(p.anim==='run')return SPR.run[Math.floor(Math.abs(p.frame))%SPR.run.length];
   if(p.anim==='walk')return SPR.walk[Math.floor(Math.abs(p.frame))%SPR.walk.length];
 
-  // Idles em pé (pés colados no chão)
-  if(p.anim==='think')return SPR.think[Math.floor(p.poseT*2.4)%SPR.think.length];
+  // Idles variados (assets com pés alinhados)
+  if(p.anim==='think')return SPR.think[Math.floor(p.poseT*2.5)%SPR.think.length];
+  if(p.anim==='look')return SPR.inspect[Math.floor(p.poseT*4.5)%SPR.inspect.length];
   if(p.anim==='wave')return SPR.wave[Math.floor(p.poseT*5)%SPR.wave.length];
+  if(p.anim==='sit'||p.anim==='magic')return SPR.magic[Math.floor(p.poseT*3.5)%SPR.magic.length];
+  if(p.anim==='cheer')return SPR.inspect[Math.min(SPR.inspect.length-1,Math.floor(p.poseT*3.5))];
+  if(p.anim==='flex'){
+    const set=[SPR.emotion[4],SPR.emotion[5],SPR.emotion[6],SPR.emotion[7]];
+    return set[Math.floor(p.poseT*2.2)%set.length];
+  }
+  if(p.anim==='surprise')return SPR.emotion[Math.floor(p.poseT*4)%3];
   if(p.anim==='pocket')return SPR.idleFront[Math.floor(p.poseT*2.5)%SPR.idleFront.length];
   return SPR.idleFront[Math.floor(p.poseT*2)%SPR.idleFront.length];
 }
@@ -1010,13 +1018,14 @@ function drawPlayer(){
   if(p.dying)return;
   if(p.inv&&Math.floor(p.inv*10)%2)return;
   let frame=pickAnimFrame();
-  // Escala única pela altura de referência do slice (evita idle/magia gigantes)
-  const refH=(frame?.naturalHeight||SPRITE_REF_H);
-  const scale=(p.h*p.squash)/refH;
-  let drawH=refH*scale,drawW=(frame?.naturalWidth||refH*.7)*scale;
-  // Limita largura pra poses largas (mapa/lupa) não estourarem
-  const maxW=p.h*1.15*p.squash;
-  if(drawW>maxW){const k=maxW/drawW;drawW*=k;drawH*=k}
+  // Escala pela altura fixa do frame (pés na base do PNG)
+  const refH=SPRITE_REF_H;
+  let scale=(p.h*p.squash)/refH;
+  let drawW=(frame?.naturalWidth||60)*scale;
+  let drawH=refH*scale;
+  // Poses largas: reduz escala inteira (sem esticar), pés continuam no chão
+  const maxW=p.h*1.35*p.squash;
+  if(drawW>maxW){scale=maxW/(frame.naturalWidth||60);drawW=maxW;drawH=refH*scale}
   let bob=(p.anim==='walk'||p.anim==='run')?Math.sin(p.frame*Math.PI)*.5*Math.min(1,Math.abs(p.vx)/200)*4:0;
   let ox=p.x+p.w/2,oy=p.y+p.h;
   X.save();X.translate(ox,oy-bob);

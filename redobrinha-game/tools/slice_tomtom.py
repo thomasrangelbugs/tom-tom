@@ -1,4 +1,4 @@
-"""Slice Tom-Tom spritesheet with uniform frame height (no giant/tiny frames)."""
+"""Slice Tom-Tom spritesheet: mesmos escala e pés alinhados embaixo."""
 from PIL import Image
 import json
 from pathlib import Path
@@ -6,8 +6,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "assets" / "tomtom-spritesheet.png"
 OUT = ROOT / "assets" / "sprites"
-# Altura fixa de todos os frames (pés alinhados embaixo)
 FRAME_H = 96
+# Largura máxima do canvas (poses largas cabem sem estourar o jogo)
+FRAME_MAX_W = 110
 
 ROW_NAMES = [
     "idle_front",
@@ -67,10 +68,51 @@ def make_transparent(im):
                 px[x, y] = (0, 0, 0, 0)
     return im
 
+def content_crop(im, x0, x1, y0, y1):
+    cell = im.crop((x0, y0, x1 + 1, y1 + 1))
+    bbox = cell.getbbox()
+    if not bbox:
+        return Image.new("RGBA", (40, FRAME_H), (0, 0, 0, 0))
+    return cell.crop(bbox)
+
+def pack_frame(content, body_scale):
+    """Escala pelo body_scale (idle em pé) e cola os pés embaixo."""
+    nw = max(1, int(round(content.width * body_scale)))
+    nh = max(1, int(round(content.height * body_scale)))
+    # não ultrapassar altura do frame
+    if nh > FRAME_H - 2:
+        k = (FRAME_H - 2) / nh
+        nw = max(1, int(round(nw * k)))
+        nh = max(1, int(round(nh * k)))
+    if nw > FRAME_MAX_W:
+        k = FRAME_MAX_W / nw
+        nw = max(1, int(round(nw * k)))
+        nh = max(1, int(round(nh * k)))
+    resized = content.resize((nw, nh), Image.Resampling.LANCZOS)
+    canvas_w = max(nw, 48)
+    canvas = Image.new("RGBA", (canvas_w, FRAME_H), (0, 0, 0, 0))
+    # pés na base
+    x = (canvas_w - nw) // 2
+    y = FRAME_H - nh
+    canvas.paste(resized, (x, y), resized)
+    return canvas
+
 def main():
     im = make_transparent(Image.open(SRC).convert("RGBA"))
     bands = find_bands(im)
     assert len(bands) == len(ROW_NAMES), f"Expected {len(ROW_NAMES)} rows, got {len(bands)}"
+
+    # Escala baseada na altura média do idle em pé (bolsos)
+    idle_y0, idle_y1 = bands[0]
+    idle_segs = find_segs(im, idle_y0, idle_y1)
+    idle_heights = []
+    for x0, x1 in idle_segs:
+        c = content_crop(im, max(0, x0 - 2), min(im.width - 1, x1 + 2), idle_y0, idle_y1)
+        idle_heights.append(c.height)
+    avg_stand = sum(idle_heights) / len(idle_heights)
+    # personagem em pé ocupa ~92% da altura do frame
+    body_scale = (FRAME_H * 0.92) / avg_stand
+    print(f"avg_stand={avg_stand:.1f} body_scale={body_scale:.3f}")
 
     for name in ROW_NAMES:
         d = OUT / name
@@ -84,28 +126,13 @@ def main():
         files = []
         max_w = 0
         for i, (x0, x1) in enumerate(segs):
-            pad_x = 2
-            # Mantém a altura da faixa inteira (não corta em cima/baixo)
-            cell = im.crop((
-                max(0, x0 - pad_x),
-                y0,
-                min(im.width, x1 + 1 + pad_x),
-                y1 + 1,
-            ))
-            # Alinha o conteúdo no fundo e redimensiona para FRAME_H fixo
-            canvas = Image.new("RGBA", (cell.width, FRAME_H), (0, 0, 0, 0))
-            # escala proporcional se a faixa for maior/menor que FRAME_H
-            scale = FRAME_H / cell.height
-            new_w = max(1, int(round(cell.width * scale)))
-            resized = cell.resize((new_w, FRAME_H), Image.Resampling.LANCZOS)
-            canvas = Image.new("RGBA", (new_w, FRAME_H), (0, 0, 0, 0))
-            canvas.paste(resized, (0, 0), resized)
-
+            content = content_crop(im, max(0, x0 - 2), min(im.width - 1, x1 + 2), y0, y1)
+            canvas = pack_frame(content, body_scale)
             out = OUT / name / f"{i}.png"
             canvas.save(out, optimize=True)
             files.append(f"sprites/{name}/{i}.png")
             max_w = max(max_w, canvas.width)
-            print(f"{name}/{i}.png {canvas.size}")
+            print(f"{name}/{i}.png {canvas.size} content~{content.size}")
         manifest[name] = {"count": len(segs), "w": max_w, "h": FRAME_H, "files": files}
 
     run_dir = ROOT / "assets" / "run"

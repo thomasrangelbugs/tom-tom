@@ -1,7 +1,7 @@
 {
   "idle_front": {
     "count": 6,
-    "w": 62,
+    "w": 54,
     "h": 96,
     "files": [
       "sprites/idle_front/0.png",
@@ -14,7 +14,7 @@
   },
   "run": {
     "count": 8,
-    "w": 85,
+    "w": 76,
     "h": 96,
     "files": [
       "sprites/run/0.png",
@@ -29,7 +29,7 @@
   },
   "walk": {
     "count": 8,
-    "w": 86,
+    "w": 76,
     "h": 96,
     "files": [
       "sprites/walk/0.png",
@@ -44,7 +44,7 @@
   },
   "wave": {
     "count": 4,
-    "w": 71,
+    "w": 61,
     "h": 96,
     "files": [
       "sprites/wave/0.png",
@@ -55,7 +55,7 @@
   },
   "jump": {
     "count": 5,
-    "w": 91,
+    "w": 79,
     "h": 96,
     "files": [
       "sprites/jump/0.png",
@@ -67,7 +67,7 @@
   },
   "emotion": {
     "count": 8,
-    "w": 91,
+    "w": 79,
     "h": 96,
     "files": [
       "sprites/emotion/0.png",
@@ -82,7 +82,7 @@
   },
   "think": {
     "count": 6,
-    "w": 63,
+    "w": 56,
     "h": 96,
     "files": [
       "sprites/think/0.png",
@@ -95,7 +95,7 @@
   },
   "magic": {
     "count": 6,
-    "w": 89,
+    "w": 79,
     "h": 96,
     "files": [
       "sprites/magic/0.png",
@@ -108,7 +108,7 @@
   },
   "inspect": {
     "count": 6,
-    "w": 82,
+    "w": 74,
     "h": 96,
     "files": [
       "sprites/inspect/0.png",
