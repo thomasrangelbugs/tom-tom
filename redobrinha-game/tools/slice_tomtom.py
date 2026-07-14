@@ -1,13 +1,13 @@
-"""Slice Tom-Tom spritesheet: mesmos escala e pés alinhados embaixo."""
+"""Slice Tom-Tom spritesheet: mesma escala, pés na base, preserva roupa escura."""
 from PIL import Image
 import json
 from pathlib import Path
+from collections import deque
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "assets" / "tomtom-spritesheet.png"
 OUT = ROOT / "assets" / "sprites"
 FRAME_H = 96
-# Largura máxima do canvas (poses largas cabem sem estourar o jogo)
 FRAME_MAX_W = 110
 
 ROW_NAMES = [
@@ -22,30 +22,63 @@ ROW_NAMES = [
     "inspect",
 ]
 
-def is_content(px, x, y):
-    r, g, b, a = px[x, y]
-    return a > 20 and (r > 22 or g > 22 or b > 22)
+# Faixas detectadas no sheet 840x1024 (fundo preto puro)
+FIXED_BANDS = [
+    (11, 101),
+    (125, 215),
+    (239, 328),
+    (353, 443),
+    (467, 556),
+    (581, 670),
+    (694, 784),
+    (807, 898),
+    (921, 1012),
+]
 
-def find_bands(im):
-    w, h = im.size
-    px = im.load()
-    rows = [any(is_content(px, x, y) for x in range(w)) for y in range(h)]
-    bands, inb = [], False
-    for i, v in enumerate(rows):
-        if v and not inb:
-            s = i
-            inb = True
-        elif not v and inb:
-            bands.append((s, i - 1))
-            inb = False
-    if inb:
-        bands.append((s, h - 1))
-    return bands
+def is_sheet_bg(r, g, b, a=255, thr=10):
+    # só preto do fundo do sheet (roupa azul/marrom escura fica)
+    return a < 8 or (r <= thr and g <= thr and b <= thr)
+
+def flood_clear_cell(cell, thr=10):
+    """Remove fundo preto a partir dos cantos da célula."""
+    cell = cell.convert("RGBA")
+    w, h = cell.size
+    px = cell.load()
+    seen = [[False] * w for _ in range(h)]
+    q = deque()
+
+    def try_push(x, y):
+        if x < 0 or y < 0 or x >= w or y >= h or seen[y][x]:
+            return
+        r, g, b, a = px[x, y]
+        if is_sheet_bg(r, g, b, a, thr):
+            seen[y][x] = True
+            q.append((x, y))
+
+    for x, y in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)):
+        try_push(x, y)
+    # também varre a borda inteira (mais seguro)
+    for x in range(w):
+        try_push(x, 0)
+        try_push(x, h - 1)
+    for y in range(h):
+        try_push(0, y)
+        try_push(w - 1, y)
+
+    while q:
+        x, y = q.popleft()
+        px[x, y] = (0, 0, 0, 0)
+        for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+            try_push(nx, ny)
+    return cell
+
+def is_content_pixel(r, g, b, a):
+    return a > 16 and not is_sheet_bg(r, g, b, a, thr=10)
 
 def find_segs(im, y0, y1):
     w, _ = im.size
     px = im.load()
-    cols = [any(is_content(px, x, y) for y in range(y0, y1 + 1)) for x in range(w)]
+    cols = [any(is_content_pixel(*px[x, y]) for y in range(y0, y1 + 1)) for x in range(w)]
     segs, inb = [], False
     for x, v in enumerate(cols):
         if v and not inb:
@@ -56,30 +89,27 @@ def find_segs(im, y0, y1):
             inb = False
     if inb:
         segs.append((s, w - 1))
-    return segs
+    # ignora ruído entre frames
+    return [(a, b) for a, b in segs if (b - a) >= 36]
 
-def make_transparent(im):
-    px = im.load()
-    w, h = im.size
-    for y in range(h):
-        for x in range(w):
-            r, g, b, a = px[x, y]
-            if r < 18 and g < 18 and b < 18:
-                px[x, y] = (0, 0, 0, 0)
-    return im
-
-def content_crop(im, x0, x1, y0, y1):
-    cell = im.crop((x0, y0, x1 + 1, y1 + 1))
+def extract_content(im, x0, x1, y0, y1):
+    pad = 3
+    cell = im.crop((
+        max(0, x0 - pad),
+        y0,
+        min(im.width, x1 + 1 + pad),
+        y1 + 1,
+    ))
+    cell = flood_clear_cell(cell, thr=10)
     bbox = cell.getbbox()
     if not bbox:
-        return Image.new("RGBA", (40, FRAME_H), (0, 0, 0, 0))
-    return cell.crop(bbox)
+        return Image.new("RGBA", (40, 40), (0, 0, 0, 0))
+    l, t, r, b = bbox
+    return cell.crop((max(0, l - 1), max(0, t - 1), min(cell.width, r + 1), min(cell.height, b + 1)))
 
 def pack_frame(content, body_scale):
-    """Escala pelo body_scale (idle em pé) e cola os pés embaixo."""
     nw = max(1, int(round(content.width * body_scale)))
     nh = max(1, int(round(content.height * body_scale)))
-    # não ultrapassar altura do frame
     if nh > FRAME_H - 2:
         k = (FRAME_H - 2) / nh
         nw = max(1, int(round(nw * k)))
@@ -91,28 +121,25 @@ def pack_frame(content, body_scale):
     resized = content.resize((nw, nh), Image.Resampling.LANCZOS)
     canvas_w = max(nw, 48)
     canvas = Image.new("RGBA", (canvas_w, FRAME_H), (0, 0, 0, 0))
-    # pés na base
     x = (canvas_w - nw) // 2
     y = FRAME_H - nh
     canvas.paste(resized, (x, y), resized)
     return canvas
 
 def main():
-    im = make_transparent(Image.open(SRC).convert("RGBA"))
-    bands = find_bands(im)
-    assert len(bands) == len(ROW_NAMES), f"Expected {len(ROW_NAMES)} rows, got {len(bands)}"
+    im = Image.open(SRC).convert("RGBA")
+    bands = FIXED_BANDS
+    assert len(bands) == len(ROW_NAMES)
 
-    # Escala baseada na altura média do idle em pé (bolsos)
     idle_y0, idle_y1 = bands[0]
     idle_segs = find_segs(im, idle_y0, idle_y1)
     idle_heights = []
     for x0, x1 in idle_segs:
-        c = content_crop(im, max(0, x0 - 2), min(im.width - 1, x1 + 2), idle_y0, idle_y1)
+        c = extract_content(im, x0, x1, idle_y0, idle_y1)
         idle_heights.append(c.height)
-    avg_stand = sum(idle_heights) / len(idle_heights)
-    # personagem em pé ocupa ~92% da altura do frame
+    avg_stand = sum(idle_heights) / max(1, len(idle_heights))
     body_scale = (FRAME_H * 0.92) / avg_stand
-    print(f"avg_stand={avg_stand:.1f} body_scale={body_scale:.3f}")
+    print(f"avg_stand={avg_stand:.1f} body_scale={body_scale:.3f} segs_idle={len(idle_segs)}")
 
     for name in ROW_NAMES:
         d = OUT / name
@@ -126,13 +153,13 @@ def main():
         files = []
         max_w = 0
         for i, (x0, x1) in enumerate(segs):
-            content = content_crop(im, max(0, x0 - 2), min(im.width - 1, x1 + 2), y0, y1)
+            content = extract_content(im, x0, x1, y0, y1)
             canvas = pack_frame(content, body_scale)
             out = OUT / name / f"{i}.png"
             canvas.save(out, optimize=True)
             files.append(f"sprites/{name}/{i}.png")
             max_w = max(max_w, canvas.width)
-            print(f"{name}/{i}.png {canvas.size} content~{content.size}")
+            print(f"{name}/{i}.png {canvas.size} src={content.size}")
         manifest[name] = {"count": len(segs), "w": max_w, "h": FRAME_H, "files": files}
 
     run_dir = ROOT / "assets" / "run"

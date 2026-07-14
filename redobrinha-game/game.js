@@ -55,7 +55,7 @@ function setPlaying(on){
 const SAVE_KEY='tomtom_save_v1';
 const vols={music:.42,sfx:.55};
 
-function loadSeries(folder,n){return Array.from({length:n},(_,i)=>{const img=new Image();img.src=`assets/sprites/${folder}/${i}.png`;return img})}
+function loadSeries(folder,n){return Array.from({length:n},(_,i)=>{const img=new Image();img.src=`assets/sprites/${folder}/${i}.png?v=4`;return img})}
 const SPR={
   idleFront:loadSeries('idle_front',6),
   run:loadSeries('run',8),
@@ -1018,16 +1018,25 @@ function drawPlayer(){
   if(p.dying)return;
   if(p.inv&&Math.floor(p.inv*10)%2)return;
   let frame=pickAnimFrame();
-  // Escala pela altura fixa do frame (pés na base do PNG)
   const refH=SPRITE_REF_H;
-  let scale=(p.h*p.squash)/refH;
-  let drawW=(frame?.naturalWidth||60)*scale;
-  let drawH=refH*scale;
-  // Poses largas: reduz escala inteira (sem esticar), pés continuam no chão
-  const maxW=p.h*1.35*p.squash;
-  if(drawW>maxW){scale=maxW/(frame.naturalWidth||60);drawW=maxW;drawH=refH*scale}
+  // Prancheta/luneta no sheet são busto (cintura pra cima) — não esticar como corpo inteiro
+  const bustPose=['sit','magic','look','cheer'].includes(p.anim);
+  let scale,drawW,drawH,yLift=0;
+  if(bustPose){
+    drawH=p.h*.58*p.squash;
+    drawW=drawH*((frame?.naturalWidth||70)/(frame?.naturalHeight||refH));
+    yLift=p.h*.42; // base do busto na altura da cintura
+    const maxW=p.h*1.1*p.squash;
+    if(drawW>maxW){const k=maxW/drawW;drawW*=k;drawH*=k}
+  }else{
+    scale=(p.h*p.squash)/refH;
+    drawW=(frame?.naturalWidth||60)*scale;
+    drawH=refH*scale;
+    const maxW=p.h*1.35*p.squash;
+    if(drawW>maxW){scale=maxW/(frame.naturalWidth||60);drawW=maxW;drawH=refH*scale}
+  }
   let bob=(p.anim==='walk'||p.anim==='run')?Math.sin(p.frame*Math.PI)*.5*Math.min(1,Math.abs(p.vx)/200)*4:0;
-  let ox=p.x+p.w/2,oy=p.y+p.h;
+  let ox=p.x+p.w/2,oy=p.y+p.h-yLift;
   X.save();X.translate(ox,oy-bob);
   // walk/crawl sprites olham pra esquerda; o resto olha pra direita
   const artFacesLeft=p.anim==='walk'||p.anim==='crawl';
