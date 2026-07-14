@@ -9,7 +9,7 @@ const keys={left:false,right:false,jump:false,run:false,down:false};
 let running=false,level=0,world,player,camera=0,last=0,audio,shake=0,bgm,muted=false;
 const BGM_TRACKS=['assets/trilha.mp3','assets/trilha2.mp3'];
 let bgmTrack=Math.random()<.5?0:1;
-let lives=3,bestScore=0,saveData=null,menuAnim=0,waveAnim=0;
+let lives=3,bestScore=0,saveData=null,menuT=0,menuPhase='idle',waveAnim=0;
 let aiMode=false,aiStuck=0,aiLastX=0,aiJumpCd=0,aiBackoff=0,aiPatience=0;
 const isTouchDevice=matchMedia('(pointer:coarse)').matches||matchMedia('(max-width:900px)').matches||('ontouchstart' in window);
 if(isTouchDevice)document.body.classList.add('touch-device');
@@ -1132,10 +1132,19 @@ function victory(){
 
 function loop(ts){
   let dt=Math.min(.033,(ts-last)/1000||0);last=ts;
-  // Menu fox blink
+  // Menu: só parado piscando, e de vez em quando acena “tchau”
   if(!ui.start.classList.contains('hidden')){
-    menuAnim+=dt;const f=Math.floor(menuAnim*3)%SPR.idleFront.length;
-    if(SPR.idleFront[f]?.complete)ui.menuFox.src=SPR.idleFront[f].src;
+    menuT+=dt;
+    if(menuPhase==='wave'){
+      const f=Math.min(SPR.wave.length-1,Math.floor(menuT*6));
+      if(SPR.wave[f]?.complete)ui.menuFox.src=SPR.wave[f].src;
+      if(menuT>=1.5){menuPhase='idle';menuT=0}
+    }else{
+      const blink=(menuT%2.8)>2.45;
+      const img=SPR.idleFront[blink?4:0]||SPR.idleFront[0];
+      if(img?.complete)ui.menuFox.src=img.src;
+      if(menuT>=5.2){menuPhase='wave';menuT=0}
+    }
   }
   if(!ui.result.classList.contains('hidden')){
     waveAnim+=dt;const f=Math.floor(waveAnim*4)%SPR.wave.length;
