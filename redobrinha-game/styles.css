@@ -138,13 +138,13 @@ body.playing #brandHud{display:block}
 }
 #touch .pad{
   position:absolute;
-  bottom:max(14px, calc(var(--safe-b) + 12px));
+  bottom:max(2px, calc(var(--safe-b) + 2px));
   top:auto;
   transform:none;
   display:flex;
   gap:10px;
   pointer-events:auto;
-  padding:8px;
+  padding:6px;
   border-radius:22px;
   background:#050b1088;
   border:1px solid #4ff5b022;
@@ -157,7 +157,7 @@ body.playing #brandHud{display:block}
 #touch .pad-right{
   right:max(6px, var(--safe-r));
   flex-direction:column;
-  bottom:max(14px, calc(var(--safe-b) + 12px));
+  bottom:max(2px, calc(var(--safe-b) + 2px));
 }
 #touch button{
   pointer-events:auto;margin:0;width:64px;height:64px;padding:0;font-size:24px;opacity:.92;
