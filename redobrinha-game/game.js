@@ -8,7 +8,7 @@ const ui={
 const keys={left:false,right:false,jump:false,run:false,down:false};
 let running=false,level=0,world,player,camera=0,last=0,audio,shake=0,bgm,muted=false;
 let lives=3,bestScore=0,saveData=null,menuAnim=0,waveAnim=0;
-let aiMode=false,aiStuck=0,aiLastX=0;
+let aiMode=false,aiStuck=0,aiLastX=0,aiJumpCd=0,aiBackoff=0,aiPatience=0;
 const isTouchDevice=matchMedia('(pointer:coarse)').matches||matchMedia('(max-width:900px)').matches||('ontouchstart' in window);
 if(isTouchDevice)document.body.classList.add('touch-device');
 const fsBtn=document.querySelector('#fs');
@@ -254,10 +254,10 @@ function startLevel(opts={}){
   if(opts.ai!=null)aiMode=!!opts.ai;
   const cp=opts.checkpoint||null;
   world=makeLevel(cp);player=makePlayer(cp?{x:cp.x,y:cp.y-SPRITE_H,checkpoint:cp,score:cp.score,coinsGot:cp.coinsGot}:null);
-  if(opts.resetLives)lives=aiMode?5:3;
+  if(opts.resetLives)lives=3;
   if(opts.keepScore&&saveData&&!aiMode)world.score=saveData.score||0;
   camera=Math.max(0,player.x-W*.36);running=true;shake=0;
-  aiStuck=0;aiLastX=player.x;
+  aiStuck=0;aiLastX=player.x;aiJumpCd=0;aiBackoff=0;aiPatience=0;
   keys.left=keys.right=keys.jump=keys.run=keys.down=false;
   ui.start.classList.add('hidden');ui.result.classList.add('hidden');ui.gameover.classList.add('hidden');
   setPlaying(true);
@@ -274,73 +274,123 @@ function stopAiToMenu(){
   ui.start.classList.remove('hidden');music('stop');
 }
 
-/** Controla teclas automaticamente: avança, pula buracos/inimigos e coleta núcleos próximos */
+/** Piloto automático cuidadoso: anda com calma, respeita inimigos/buracos e morre como o jogador */
 function aiThink(dt){
   const p=player;
-  keys.left=false;keys.right=true;keys.run=true;keys.jump=false;
+  aiJumpCd=Math.max(0,aiJumpCd-dt);
+  aiBackoff=Math.max(0,aiBackoff-dt);
+  aiPatience=Math.max(0,aiPatience-dt);
 
-  const look=160;
+  keys.left=false;keys.right=false;keys.run=false;keys.jump=false;keys.down=false;
+
+  // Depois de tomar dano, espera a invulnerabilidade e não avança loucamente
+  if(p.inv>0.35){
+    keys.right=false;
+    if(p.on&&aiJumpCd<=0&&Math.random()<dt*2){/* quiet */}
+    return;
+  }
+
   const feetX=p.x+p.w*.55, feetY=p.y+p.h;
-  const groundAhead=world.platforms.some(b=>
-    feetX+look>b.x&&feetX+40<b.x+b.w&&Math.abs(b.y-feetY)<28
-  )||world.crates.some(c=>
-    feetX+look>c.x&&feetX+40<c.x+c.w&&Math.abs(c.y-feetY)<28
-  );
-  const nearEdge=!world.platforms.some(b=>
-    feetX+55>b.x&&feetX+90<b.x+b.w&&Math.abs(b.y-feetY)<20
-  )&&!world.crates.some(c=>
-    feetX+55>c.x&&feetX+90<c.x+c.w&&Math.abs(c.y-feetY)<20
-  );
+  const solidAt=(x,yTol=22)=>world.platforms.some(b=>x>b.x+6&&x<b.x+b.w-6&&Math.abs(b.y-feetY)<yTol)
+    ||world.crates.some(c=>x>c.x+4&&x<c.x+c.w-4&&Math.abs(c.y-feetY)<yTol);
 
-  // Inimigos à frente
-  let threat=null,stomp=null;
+  const gapClose=!solidAt(feetX+48,18);
+  const gapMid=!solidAt(feetX+110,26);
+  const landOK=solidAt(feetX+150,40)||solidAt(feetX+190,50);
+  const pitAhead=gapClose&&gapMid;
+
+  // Inimigos relevantes à frente / perto
+  let danger=null, stompTarget=null, flyerOver=null;
   for(const e of world.enemies){
     if(!e.alive||(e.type==='glitch'&&!e.visible))continue;
-    const dx=e.x-p.x;
-    if(dx<-20||dx>200)continue;
-    if(Math.abs((e.y+e.h/2)-(p.y+p.h/2))>90)continue;
-    if(e.type==='spike'&&dx<130)threat=e;
-    else if(dx<110){if(e.type!=='spike')stomp=e; else threat=e}
+    const dx=e.x-(p.x+p.w*.5);
+    const dy=(e.y+e.h*.5)-(p.y+p.h*.5);
+    if(dx<-40||dx>220)continue;
+    if(Math.abs(dy)>110)continue;
+    if(e.type==='flyer'&&e.y+e.h<p.y+20&&dx>10&&dx<160){flyerOver=e;continue}
+    if(e.type==='spike'){
+      if(dx<150&&Math.abs(dy)<70)danger=e;
+    }else if(dx>8&&dx<130&&Math.abs(dy)<55){
+      // só considera stomp se estiver caindo / saltable
+      if(dx>35&&dx<95)stompTarget=e;
+      else if(dx<=35)danger=e;
+    }else if(dx<150&&Math.abs(dy)<60){
+      danger=danger||e;
+    }
   }
 
-  // Núcleo / power próximos (um pouco acima)
-  const coin=world.coins.find(c=>!c.got&&c.x>p.x-20&&c.x<p.x+140&&c.y<p.y+40&&c.y>p.y-130);
-  const pow=world.power.find(m=>!m.got&&m.x>p.x-10&&m.x<p.x+130&&Math.abs(m.y-p.y)<120);
-  const blockUp=world.blocks.find(b=>b.alive&&!b.used&&b.x+b.w>p.x&&b.x<p.x+p.w&&b.y+b.h<p.y+10&&b.y>p.y-130);
+  // Coleta só se for quase no caminho e sem ameaça
+  const safeLoot=!danger&&!pitAhead;
+  const coin=safeLoot&&world.coins.find(c=>!c.got&&c.x>p.x&&c.x<p.x+100&&c.y<p.y+30&&c.y>p.y-90);
+  const pow=safeLoot&&world.power.find(m=>!m.got&&m.x>p.x&&m.x<p.x+110&&Math.abs(m.y-(p.y+p.h/2))<70);
 
-  // Detectar stuck
-  if(Math.abs(p.x-aiLastX)<8)aiStuck+=dt; else aiStuck=0;
+  if(Math.abs(p.x-aiLastX)<6)aiStuck+=dt; else aiStuck=Math.max(0,aiStuck-dt*1.5);
   aiLastX=p.x;
 
-  let wantJump=false;
-  if(p.on){
-    if(nearEdge||!groundAhead)wantJump=true;
-    if(threat&&threat.x-p.x<120)wantJump=true;
-    if(stomp&&stomp.x-p.x<90&&stomp.x-p.x>20)wantJump=true;
-    if(coin&&coin.y<p.y-20)wantJump=true;
-    if(pow)wantJump=true;
-    if(blockUp)wantJump=true;
-    if(aiStuck>.45){wantJump=true;aiStuck=0}
-  }else if(p.jumpsLeft>0){
-    // Pullo duplo: buraco ainda à frente, ameaça ou stuck no ar
-    if(nearEdge||!groundAhead)wantJump=true;
-    if(threat&&threat.x-p.x<140)wantJump=true;
-    if(coin&&coin.y<p.y-10)wantJump=true;
-    if(aiStuck>.28){wantJump=true;aiStuck=0}
+  // Direção padrão: avançar com calma
+  let goRight=true, goLeft=false, wantRun=false, wantJump=false;
+
+  if(aiBackoff>0){
+    goRight=false;goLeft=true;wantRun=false;
   }
 
-  // Evitar precipício: se muito perto da beira e salto não cobre, recuar um pouco
-  if(p.on&&nearEdge&&!groundAhead){
-    wantJump=true;
+  // Spike / perigo próximo: recuar ou esperar, não spammar pulo
+  if(danger){
+    const dx=danger.x-(p.x+p.w*.5);
+    if(danger.type==='spike'||dx<55){
+      // espera passar ou pula por cima com um único pulo bem timed
+      if(p.on&&dx>70&&dx<120&&aiJumpCd<=0&&solidAt(danger.x+60,35)){
+        wantJump=true;wantRun=true;goRight=true;goLeft=false;
+      }else if(dx<80){
+        goRight=false;goLeft=true;aiBackoff=.35;
+      }else{
+        goRight=false; // espera
+        aiPatience=.2;
+      }
+    }else if(stompTarget&&p.on&&aiJumpCd<=0){
+      // prepara stomp: anda até a distância e pula uma vez
+      const sdx=stompTarget.x-(p.x+p.w);
+      if(sdx>40){goRight=true;wantRun=false}
+      else if(sdx>12){wantJump=true;goRight=true}
+      else{goLeft=true;goRight=false;aiBackoff=.25}
+    }
   }
 
-  // Flyer: se passar por baixo sem stomp, ok; se ameaça spike no ar, acelerar
-  if(threat&&threat.type==='spike'&&threat.x-p.x<70){
-    if(p.on){keys.left=true;keys.right=false}
-    wantJump=true;
+  // Buraco: só pula se houver pouso previsível
+  if(!danger&&p.on&&pitAhead){
+    if(landOK&&aiJumpCd<=0){wantJump=true;wantRun=true;goRight=true}
+    else{goRight=false;goLeft=true;aiBackoff=.4} // não se mata no void
   }
 
-  keys.jump=wantJump;
+  // Loot seguro
+  if(safeLoot&&p.on&&aiJumpCd<=0){
+    if(coin&&coin.y<p.y-25)wantJump=true;
+    if(pow&&pow.y<p.y+20)wantJump=true;
+  }
+
+  // Stuck: um pulo, sem spam
+  if(aiStuck>.7&&p.on&&aiJumpCd<=0){
+    wantJump=true;wantRun=true;aiStuck=0;
+  }
+
+  // No ar: duplo só para salvar de precipício ou inimigo, nunca automaticamente
+  if(!p.on&&p.jumpsLeft>0&&aiJumpCd<=0){
+    const stillPit=!solidAt(feetX+70,80)&&!solidAt(feetX+120,100);
+    if(stillPit&&p.vy>40)wantJump=true;
+    else if(danger&&danger.x>p.x&&danger.x<p.x+90&&p.vy>0)wantJump=true;
+  }
+
+  // Velocidade: correr só em trecho limpo
+  if(goRight&&!danger&&!pitAhead&&!gapClose)wantRun=true;
+  if(flyerOver&&flyerOver.x-p.x<90){wantRun=false;goRight=true} // passa por baixo andando
+
+  if(aiPatience>0){goRight=false;goLeft=false;wantRun=false}
+
+  keys.right=goRight;keys.left=goLeft;keys.run=wantRun;
+  if(wantJump&&aiJumpCd<=0){
+    keys.jump=true;
+    aiJumpCd=p.on?.42:.55; // cooldown pra não gastar o duplo no mesmo frame
+  }
 }
 
 function rect(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y}
@@ -572,32 +622,36 @@ function hurt(fall){
   if(player.big&&!fall){
     player.big=false;applyHeight(player,false);player.h=SPRITE_H;player.w=56;player.inv=1.8;
     burst(player.x+player.w/2,player.y+player.h/2,12,['#48f3a9','#fff'],180);
-    return;
-  }
-  if(aiMode){
-    // No modo IA regenera e segue, sem game over permanente
-    lives=Math.max(1,lives);
-    const cp=player.checkpoint;
-    if(cp){player.x=cp.x;player.y=cp.y-player.h}
-    else{player.x=Math.max(80,camera+100);player.y=250}
-    player.vx=0;player.vy=0;player.inv=2.2;aiStuck=0;aiLastX=player.x;
-    camera=Math.max(0,player.x-W*.36);
+    if(aiMode){aiBackoff=.5;aiJumpCd=.3}
     return;
   }
   lives--;
   world.score=Math.max(0,world.score-200);
+  if(aiMode){aiBackoff=.55;aiStuck=0;aiJumpCd=.35}
   if(lives<=0){gameOver();return}
   const cp=player.checkpoint;
   if(cp){player.x=cp.x;player.y=cp.y-player.h;world.score=Math.max(world.score,cp.score||0)}
   else{player.x=Math.max(80,camera+100);player.y=250}
-  player.vx=0;player.vy=0;player.inv=2;saveProgress({checkpoint:player.checkpoint});
+  player.vx=0;player.vy=0;player.inv=2;
+  camera=Math.max(0,player.x-W*.36);
+  if(!aiMode)saveProgress({checkpoint:player.checkpoint});
 }
 
 function gameOver(){
   running=false;world.state='dead';music('stop');setPlaying(false);
+  document.body.classList.remove('ai-playing');
   if(aiMode){
-    // reinicia a demo sozinha
-    setTimeout(()=>{if(aiMode){level=0;lives=5;startLevel({resetLives:true,ai:true})}},1200);
+    ui.over.innerHTML=`Modo IA perdeu<br>Pontuação: <b>${world.score}</b><br>Fase: <b>${level+1}</b>`;
+    ui.gameover.classList.remove('hidden');
+    // Reinicia a demo depois, sem imortalidade
+    setTimeout(()=>{
+      if(!document.querySelector('#gameover')?.classList.contains('hidden')&&!running){
+        // só reinicia se ainda estiver na tela de game over da IA
+        if(ui.start.classList.contains('hidden')){
+          aiMode=true;level=0;lives=3;startLevel({resetLives:true,ai:true});
+        }
+      }
+    },2200);
     return;
   }
   ui.over.innerHTML=`Pontuação: <b>${world.score}</b><br>Fase: <b>${level+1}</b><br>Recorde: <b>${Math.max(bestScore,world.score)}</b>`;
@@ -926,7 +980,7 @@ function victory(){
   setTimeout(()=>{
     if(aiMode){
       // continua sozinha para a próxima fase
-      level++;lives=Math.max(lives,3);
+      level++;
       startLevel({ai:true});
       return;
     }
@@ -1002,7 +1056,7 @@ ui.volMusic.oninput=()=>{vols.music=+ui.volMusic.value/100;persistVols();if(bgm)
 ui.volSfx.oninput=()=>{vols.sfx=+ui.volSfx.value/100;persistVols()};
 
 document.querySelector('#play').onclick=()=>{aiMode=false;level=0;lives=3;startLevel({resetLives:true,ai:false})};
-document.querySelector('#playAi').onclick=()=>{level=0;lives=5;startLevel({resetLives:true,ai:true})};
+document.querySelector('#playAi').onclick=()=>{level=0;lives=3;startLevel({resetLives:true,ai:true})};
 document.querySelector('#continue').onclick=()=>{
   aiMode=false;
   loadSave();level=saveData?.level||0;lives=saveData?.lives||3;
