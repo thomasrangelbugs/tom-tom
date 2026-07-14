@@ -1,10 +1,10 @@
-# Tom-Tom — A Jornada do Thor
+# Tom-Tom — Senhor dos Raios
 
-> Jogo web de plataforma procedural em HTML5 Canvas, tema Thor / Tom-Tom.
+> Jogo web de plataforma procedural em HTML5 Canvas, tema Thor.
 
 ## Sobre
 
-Mesma dinâmica de plataforma side-scrolling: colete moedas de ouro, quebre blocos, desvie dos inimigos e atravesse o portal. Fases procedurais com clima, estação, trilha e save local.
+Controle o Tom-Tom: colete **raios azuis**, pegue o **Mjölnir** para brilhar com eletricidade, quebre blocos, desvie dos inimigos e atravesse o portal do trovão. Fases procedurais com clima, estação, trilha e save local.
 
 ## Como jogar local
 

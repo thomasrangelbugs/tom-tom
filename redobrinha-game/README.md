@@ -1,5 +1,7 @@
-# Tom-Tom — pasta do jogo
+# Tom-Tom — Senhor dos Raios
 
-Publique esta pasta no Netlify (ou use o `netlify.toml` da raiz com `publish = "redobrinha-game"`).
+Publique esta pasta no Netlify (`publish = "redobrinha-game"`).
 
-Personagem Tom-Tom, moedas de ouro, tema Thor. Sem branding Redobrai.
+- Personagem Tom-Tom (tema Thor)
+- Coletáveis: raios azuis
+- Power-up: Mjölnir (brilho elétrico)
