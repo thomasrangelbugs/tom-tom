@@ -260,7 +260,7 @@ function makeLevel(fromCheckpoint){
 
   const startX=fromCheckpoint?.x||100,startY=fromCheckpoint?.y||430;
   return{R,t,worldSeed:seed,platforms,coins,enemies,power,decor,clouds,buildings,blocks,crates,checkpoints,finish,length:x+680,
-    particles:[],fx:[],time:110+level*5,start:performance.now(),score:fromCheckpoint?.score||0,coinsGot:fromCheckpoint?.coinsGot||0,state:'play',portalPulse:0,startX,startY};
+    particles:[],fx:[],deathCoins:[],time:110+level*5,start:performance.now(),score:fromCheckpoint?.score||0,coinsGot:fromCheckpoint?.coinsGot||0,state:'play',portalPulse:0,startX,startY};
 }
 
 function makePlayer(spawn){
@@ -268,7 +268,8 @@ function makePlayer(spawn){
     x:spawn?.x??100,y:spawn?.y??430,w:56,h:SPRITE_H,vx:0,vy:0,on:false,big:false,inv:0,
     frame:0,face:1,squash:1,landFlash:0,wasOn:false,lastStep:0,idleTime:0,anim:'idle',
     think:false,checkpoint:spawn?.checkpoint||null,hurtFlash:0,poseT:0,jumpsLeft:2,
-    crouch:false,idleMode:'pocket',idleNext:2.2+Math.random()*1.5
+    crouch:false,idleMode:'pocket',idleNext:2.2+Math.random()*1.5,
+    dying:false,dieT:0,respawnAt:null
   };
 }
 
@@ -299,6 +300,7 @@ function stopAiToMenu(){
 /** Piloto automático cuidadoso: anda com calma, respeita inimigos/buracos e morre como o jogador */
 function aiThink(dt){
   const p=player;
+  if(p.dying)return;
   aiJumpCd=Math.max(0,aiJumpCd-dt);
   aiBackoff=Math.max(0,aiBackoff-dt);
   aiPatience=Math.max(0,aiPatience-dt);
@@ -424,10 +426,77 @@ function dust(x,y,dir=1){
   for(let i=0;i<5;i++)world.fx.push({x:x+(Math.random()-.5)*18,y,vx:(Math.random()*-40-20)*dir,vy:-20-Math.random()*50,life:.25+Math.random()*.35,max:.5,r:3+Math.random()*5,c:'#c8b48a88',g:200});
 }
 
+function explodeIntoCoins(p){
+  const cx=p.x+p.w/2,cy=p.y+p.h*.42;
+  p.deathAt={x:cx,y:cy};
+  world.deathCoins=[];
+  for(let i=0;i<14;i++){
+    const a=(i/14)*Math.PI*2+Math.random()*.35,s=140+Math.random()*240;
+    world.deathCoins.push({
+      x:cx,y:cy,vx:Math.cos(a)*s,vy:Math.sin(a)*s-120,
+      t:0,pulse:Math.random()*6,r:9+Math.random()*5,got:false,collectAt:.38+Math.random()*.32
+    });
+  }
+  burst(cx,cy,16,['#55f2b0','#ffe47c','#dfffee','#43efa7'],260);
+}
+
+function updateDeathCoins(dt){
+  const tx=player.deathAt?.x??player.x,ty=player.deathAt?.y??player.y;
+  for(const c of world.deathCoins){
+    if(c.got)continue;
+    c.t+=dt;
+    if(c.t<c.collectAt){
+      c.vy+=780*dt;c.x+=c.vx*dt;c.y+=c.vy*dt;
+      c.vx*=Math.pow(.18,dt);c.vy*=Math.pow(.55,dt);
+    }else{
+      // volta pro centro e “coleta”
+      const dx=tx-c.x,dy=ty-c.y,d=Math.hypot(dx,dy)||1;
+      c.vx+=dx/d*1100*dt;c.vy+=dy/d*1100*dt;
+      c.x+=c.vx*dt;c.y+=c.vy*dt;
+      if(d<22||c.t>1.05){
+        c.got=true;world.coinsGot++;world.score+=25;sfx('coin');
+        burst(c.x,c.y,5,['#55f2b0','#ffe47c','#fff'],100);
+      }
+    }
+  }
+  world.deathCoins=world.deathCoins.filter(c=>!c.got);
+}
+
+function drawDeathCoin(c){
+  const y=c.y+Math.sin(c.t*8+c.pulse)*2;
+  X.save();X.translate(c.x,y);
+  X.globalAlpha=.4;X.fillStyle='#55f2b0';X.beginPath();X.arc(0,0,c.r*1.35,0,7);X.fill();X.globalAlpha=1;
+  X.scale(.55+Math.abs(Math.sin(c.t*7))*.45,1);
+  X.fillStyle='#063c31';X.beginPath();X.arc(0,0,c.r,0,7);X.fill();
+  X.fillStyle='#55f2b0';X.beginPath();X.arc(0,0,c.r*.72,0,7);X.fill();
+  X.fillStyle='#dfffee';X.font=`900 ${Math.floor(c.r)}px sans-serif`;X.textAlign='center';X.textBaseline='middle';
+  X.fillText('◆',0,1);
+  X.restore();
+}
+
 function update(dt){
   if(!running||world.state!=='play')return;
-  if(aiMode)aiThink(dt);
   let p=player,t=world.t;
+
+  // Morte: explode em moedinhas → coleta → reaparece ~1s
+  if(p.dying){
+    p.dieT-=dt;
+    updateDeathCoins(dt);
+    updateFx(dt);weather(dt);ambient(dt);
+    shake=Math.max(0,shake-dt*3);world.portalPulse+=dt;
+    if(p.dieT<=0){
+      world.deathCoins=[];
+      if(lives<=0||!p.respawnAt){p.dying=false;gameOver();return}
+      p.dying=false;p.dieT=0;
+      p.x=p.respawnAt.x;p.y=p.respawnAt.y;
+      p.vx=0;p.vy=0;p.on=false;p.inv=2;p.hurtFlash=0;p.squash=1;
+      applyHeight(p,false);
+      camera=Math.max(0,p.x-W*.36);
+    }
+    return;
+  }
+
+  if(aiMode)aiThink(dt);
   const wantCrouch=!!keys.down&&p.on&&!keys.jump;
   applyHeight(p,wantCrouch);
   const wantSprint=keys.run&&!p.crouch;
@@ -490,7 +559,10 @@ function update(dt){
 
   if(!p.wasOn&&p.on){p.squash=1.2;p.landFlash=.22;p.jumpsLeft=2;dust(p.x+p.w/2,p.y+p.h,p.face||1);sfx('land')}
   if(p.y>H+120)hurt(true);
-  if(p.vx)p.face=Math.sign(p.vx);
+  // Olhar segue o controle (não a inércia), pra não inverter ao frear/virar
+  if(keys.right&&!keys.left)p.face=1;
+  else if(keys.left&&!keys.right)p.face=-1;
+  else if(Math.abs(p.vx)>40)p.face=Math.sign(p.vx);
 
   // Animation state machine
   const moving=p.on&&Math.abs(p.vx)>(ice?12:26);
@@ -639,7 +711,7 @@ function updateFx(dt){
 }
 
 function hurt(fall){
-  if(player.inv>0)return;
+  if(player.inv>0||player.dying)return;
   shake=.5;player.hurtFlash=.6;player.anim='hurt';player.poseT=0;sfx('hurt');
   if(player.big&&!fall){
     player.big=false;applyHeight(player,false);player.h=SPRITE_H;player.w=56;player.inv=1.8;
@@ -650,12 +722,15 @@ function hurt(fall){
   lives--;
   world.score=Math.max(0,world.score-200);
   if(aiMode){aiBackoff=.55;aiStuck=0;aiJumpCd=.35}
-  if(lives<=0){gameOver();return}
+  if(player.big){player.big=false;applyHeight(player,false)}
+  player.vx=0;player.vy=0;player.dying=true;player.dieT=1;
+  explodeIntoCoins(player);
+  if(lives<=0){player.respawnAt=null;return}
   const cp=player.checkpoint;
-  if(cp){player.x=cp.x;player.y=cp.y-player.h;world.score=Math.max(world.score,cp.score||0)}
-  else{player.x=Math.max(80,camera+100);player.y=250}
-  player.vx=0;player.vy=0;player.inv=2;
-  camera=Math.max(0,player.x-W*.36);
+  const rx=cp?cp.x:Math.max(80,camera+100);
+  const ry=cp?cp.y-SPRITE_H:250;
+  if(cp)world.score=Math.max(world.score,cp.score||0);
+  player.respawnAt={x:rx,y:ry};
   if(!aiMode)saveProgress({checkpoint:player.checkpoint});
 }
 
@@ -788,6 +863,7 @@ function drawWorld(t){
   for(const c of world.coins)if(!c.got)drawCoin(c);
   for(const m of world.power)if(!m.got)drawPower(m);
   for(const e of world.enemies)if(e.alive)drawEnemy(e);
+  for(const c of world.deathCoins)if(!c.got)drawDeathCoin(c);
   drawFinish();drawPlayer();
 }
 
@@ -922,6 +998,7 @@ function drawFinish(){
 
 function drawPlayer(){
   let p=player;
+  if(p.dying)return;
   if(p.inv&&Math.floor(p.inv*10)%2)return;
   let frame=pickAnimFrame();
   let hBase=p.h,drawH=hBase*p.squash,drawW;
@@ -930,14 +1007,17 @@ function drawPlayer(){
   let bob=(p.anim==='walk'||p.anim==='run')?Math.sin(p.frame*Math.PI)*.5*Math.min(1,Math.abs(p.vx)/200)*4:0;
   let ox=p.x+p.w/2,oy=p.y+p.h;
   X.save();X.translate(ox,oy-bob);
-  // Hurt / think facing: keep face; emotion sprites are 3/4 right so flip when face<0
-  if(p.face<0)X.scale(-1,1);
+  // walk/crawl sprites olham pra esquerda; o resto olha pra direita
+  const artFacesLeft=p.anim==='walk'||p.anim==='crawl';
+  const flip=artFacesLeft?(p.face>0):(p.face<0);
+  if(flip)X.scale(-1,1);
   let lean=Math.max(-.08,Math.min(.08,p.vx/4500));X.rotate(lean);
-  if(frame?.complete&&frame.naturalWidth)X.drawImage(frame,-drawW/2,-drawH,drawW,drawH);
   if(p.big){
-    X.globalAlpha=.22+Math.sin(performance.now()/200)*.08;X.strokeStyle='#48f3a9';X.lineWidth=3;
-    X.beginPath();X.ellipse(0,-drawH*.5,drawW*.55,drawH*.55,0,0,7);X.stroke();X.globalAlpha=1;
+    const pulse=14+Math.sin(performance.now()/220)*5;
+    X.shadowColor='#48f3a9';X.shadowBlur=pulse;
   }
+  if(frame?.complete&&frame.naturalWidth)X.drawImage(frame,-drawW/2,-drawH,drawW,drawH);
+  X.shadowBlur=0;X.shadowColor='transparent';
   X.restore();
 }
 
