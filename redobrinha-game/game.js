@@ -73,8 +73,49 @@ const themes=[
  {season:'Inverno',sky:['#6e91aa','#eaf8ff'],ground:'#e9f7f8',soil:'#637b87',accent:'#a8f3ff',leaf:'#cde8f5',challenge:'gelo'},
  {season:'Primavera',sky:['#6bc5b6','#f6d3e6'],ground:'#49a557',soil:'#73503b',accent:'#ffc1dc',leaf:'#ff8eb8',challenge:'vento'}
 ];
+const dayParts=[
+  {id:'madrugada',label:'Madrugada',night:true,skyMul:['#071225','#1a2740']},
+  {id:'manha',label:'Manhã',night:false,skyMul:null},
+  {id:'dia',label:'Dia',night:false,skyMul:null},
+  {id:'tarde',label:'Tarde',night:false,skyMul:['#4aa3c7','#f2c48a']},
+  {id:'entardecer',label:'Entardecer',night:false,skyMul:['#c45d3a','#f5b56a']},
+  {id:'noite',label:'Noite',night:true,skyMul:['#07152d','#182f4d']}
+];
+const weathers=['Limpo','Nublado','Garoa','Chuva','Neve','Ventania'];
 
 function rng(seed){return()=>(((seed=Math.imul(seed^seed>>>15,1|seed),seed^=seed+Math.imul(seed^seed>>>7,61|seed))^seed>>>14)>>>0)/4294967296}
+function newWorldSeed(extra=0){
+  const a=(Date.now()^((performance.now()*1000)|0)^extra)&0xffffffff;
+  const b=((Math.random()*0xffffffff)|0);
+  return (a^b^(level*99991)^(lives*131)^((Math.random()*0xffffff)|0))>>>0;
+}
+function pickClimate(R){
+  const base={...themes[Math.floor(R()*themes.length)]};
+  const part=dayParts[Math.floor(R()*dayParts.length)];
+  let pool;
+  if(base.season==='Inverno')pool=['Limpo','Nublado','Neve','Neve','Garoa','Chuva','Ventania'];
+  else if(base.season==='Verão')pool=['Limpo','Limpo','Nublado','Garoa','Chuva','Ventania'];
+  else if(base.season==='Outono')pool=['Limpo','Nublado','Garoa','Chuva','Ventania','Nublado'];
+  else pool=['Limpo','Nublado','Garoa','Chuva','Ventania','Limpo'];
+  const weather=pool[Math.floor(R()*pool.length)];
+  const challenges=['calor','folhas','gelo','vento','calmaria'];
+  const challenge=R()<.58?base.challenge:challenges[Math.floor(R()*challenges.length)];
+  let wind=0;
+  if(weather==='Ventania'||challenge==='vento')wind=(R()<.5?-1:1)*(1.3+R()*1.1);
+  else if(challenge==='gelo')wind=R()<.5?(R()<.5?-1:1)*(0.4+R()*0.5):0;
+  else if(weather==='Chuva'||weather==='Garoa')wind=(R()<.5?-1:1)*(0.3+R()*0.7);
+  else wind=R()<.38?(R()<.5?-1:1)*(0.4+R()*0.8):0;
+  const t={
+    ...base,challenge,
+    dayPart:part.label,dayPartId:part.id,night:part.night,weather,wind,
+    ice:challenge==='gelo'||(base.season==='Inverno'&&weather==='Neve'&&R()<.55),
+    heat:challenge==='calor'||(base.season==='Verão'&&(part.id==='tarde'||part.id==='dia')&&R()<.45),
+    leafStorm:challenge==='folhas'||(base.season==='Outono'&&R()<.4),
+    skyOverride:part.skyMul?part.skyMul.slice():null
+  };
+  if(weather==='Nublado')t.skyOverride=t.skyOverride||[t.sky[0],'#9bb6c5'];
+  return t;
+}
 
 function loadSave(){
   try{saveData=JSON.parse(localStorage.getItem(SAVE_KEY)||'null')}catch{saveData=null}
@@ -87,9 +128,11 @@ function persistVols(){localStorage.setItem('redobrinha_vols',JSON.stringify(vol
 function saveProgress(extra={}){
   const payload={
     level,lives,score:world?.score||0,best:Math.max(bestScore,world?.score||0),
-    checkpoint:player?.checkpoint||null,updated:Date.now(),...extra
+    checkpoint:player?.checkpoint||null,worldSeed:world?.worldSeed??null,updated:Date.now(),...extra
   };
-  bestScore=payload.best;localStorage.setItem(SAVE_KEY,JSON.stringify(payload));saveData=payload;ui.cont.classList.remove('hidden');
+  bestScore=Math.max(bestScore,payload.best);
+  localStorage.setItem(SAVE_KEY,JSON.stringify(payload));
+  saveData=payload;ui.cont.classList.remove('hidden');
 }
 
 function ensureAudio(){
@@ -120,16 +163,10 @@ function music(type){
 }
 
 function makeLevel(fromCheckpoint){
-  let R=rng(991+level*7919),t={...themes[Math.floor(R()*themes.length)]};
-  t.night=R()<.35;
-  t.weather=t.season==='Inverno'&&R()<.75?'Neve':R()<.3?'Chuva':'Limpo';
-  // Season challenges
-  if(t.challenge==='vento'||t.season==='Primavera')t.wind=(R()<.5?-1:1)*(1.2+R()*.8);
-  else if(t.challenge==='gelo')t.wind=R()<.45?(R()<.5?-1:1)*.6:0;
-  else t.wind=R()<.4?(R()<.5?-1:1):0;
-  t.ice=t.challenge==='gelo';
-  t.heat=t.challenge==='calor';
-  t.leafStorm=t.challenge==='folhas';
+  // Seed novo a cada partida/fase; só reaproveita no checkpoint da mesma run
+  const seed=(fromCheckpoint?.worldSeed!=null)?(fromCheckpoint.worldSeed>>>0):newWorldSeed(level*7919+Math.floor(Math.random()*1e9));
+  let R=rng(seed^((level+1)*13007));
+  const t=pickClimate(R);
 
   let platforms=[],coins=[],enemies=[],power=[],decor=[],clouds=[],checkpoints=[],buildings=[],blocks=[],crates=[];
   let x=0,y=590;platforms.push({x:0,y,w:700,h:160,ice:false});x=590;
@@ -187,7 +224,7 @@ function makeLevel(fromCheckpoint){
   for(let i=0;i<6;i++)buildings.push({x:200+i*420+R()*80,y:620,h:140+R()*160,w:55+R()*70,layer:1});
 
   const startX=fromCheckpoint?.x||100,startY=fromCheckpoint?.y||430;
-  return{R,t,platforms,coins,enemies,power,decor,clouds,buildings,blocks,crates,checkpoints,finish,length:x+680,
+  return{R,t,worldSeed:seed,platforms,coins,enemies,power,decor,clouds,buildings,blocks,crates,checkpoints,finish,length:x+680,
     particles:[],fx:[],time:110+level*5,start:performance.now(),score:fromCheckpoint?.score||0,coinsGot:fromCheckpoint?.coinsGot||0,state:'play',portalPulse:0,startX,startY};
 }
 
@@ -317,7 +354,7 @@ function update(dt){
   }
   for(const cp of world.checkpoints){
     if(!cp.got&&Math.abs(p.x+p.w/2-cp.x)<40&&p.y+p.h<=cp.y+8&&p.y+p.h>cp.y-120){
-      cp.got=true;p.checkpoint={x:cp.x-20,y:cp.y,id:cp.id,score:world.score,coinsGot:world.coinsGot};
+      cp.got=true;p.checkpoint={x:cp.x-20,y:cp.y,id:cp.id,score:world.score,coinsGot:world.coinsGot,worldSeed:world.worldSeed};
       sfx('checkpoint');burst(cp.x,cp.y-60,16,['#4affb0','#ffe47c','#fff'],200);
       p.anim='inspect';p.poseT=0;saveProgress({checkpoint:p.checkpoint});
     }
@@ -437,10 +474,11 @@ function gameOver(){
 }
 
 function weather(dt){
-  let rate=world.t.weather==='Limpo'?0:world.t.weather==='Chuva'?18:8;
-  for(let i=0;i<rate;i++)if(Math.random()<dt*9)world.particles.push({x:camera+Math.random()*W,y:-10,v:world.t.weather==='Chuva'?760:95,s:world.t.weather==='Chuva'?16:3});
+  const w=world.t.weather;
+  let rate=w==='Limpo'||w==='Nublado'?0:w==='Chuva'?18:w==='Garoa'?8:w==='Ventania'?2:8;
+  for(let i=0;i<rate;i++)if(Math.random()<dt*9)world.particles.push({x:camera+Math.random()*W,y:-10,v:w==='Chuva'?760:w==='Garoa'?420:95,s:w==='Chuva'?16:w==='Garoa'?10:3});
   for(const p of world.particles){p.y+=p.v*dt;p.x+=(world.t.wind||0)*95*dt}
-  world.particles=world.particles.filter(p=>p.y<H+10);
+  world.particles=world.particles.filter(p=>p.y<H+40);
 }
 
 function pickAnimFrame(){
@@ -467,7 +505,8 @@ function draw(){
   let sx=shake?(Math.random()-.5)*shake*18:0,sy=shake?(Math.random()-.5)*shake*14:0;
   X.save();X.translate(sx,sy);
   let g=X.createLinearGradient(0,0,0,H);
-  let a=t.night?'#07152d':t.sky[0],b=t.night?'#182f4d':t.sky[1];
+  let a=t.skyOverride?t.skyOverride[0]:(t.night?'#07152d':t.sky[0]);
+  let b=t.skyOverride?t.skyOverride[1]:(t.night?'#182f4d':t.sky[1]);
   g.addColorStop(0,a);g.addColorStop(1,b);X.fillStyle=g;X.fillRect(-20,-20,W+40,H+40);
   drawSky(t);
   if(!world){X.restore();return}
@@ -696,12 +735,14 @@ function drawFxWorld(){
 function drawWeather(t){
   X.strokeStyle='#b5edff99';X.fillStyle='#fff';
   for(const p of world.particles){
-    if(t.weather==='Chuva'){X.beginPath();X.moveTo(p.x-camera,p.y);X.lineTo(p.x-camera+(t.wind||0)*10,p.y+p.s);X.stroke()}
+    if(t.weather==='Chuva'||t.weather==='Garoa'){X.beginPath();X.moveTo(p.x-camera,p.y);X.lineTo(p.x-camera+(t.wind||0)*10,p.y+p.s);X.stroke()}
     else{X.beginPath();X.arc(p.x-camera,p.y,p.s,0,7);X.fill()}
   }
   if(t.night){X.fillStyle='#02101844';X.fillRect(0,0,W,H)}
   if(t.weather==='Chuva'){X.fillStyle='#1a334422';X.fillRect(0,0,W,H)}
-  if(Math.abs(t.wind||0)>1){X.fillStyle='#ffffff08';for(let i=0;i<8;i++){let y=(performance.now()/12+i*90)%H;X.fillRect(0,y,W,2)}}
+  if(t.weather==='Garoa'){X.fillStyle='#1a334418';X.fillRect(0,0,W,H)}
+  if(t.weather==='Nublado'){X.fillStyle='#1a2a3344';X.fillRect(0,0,W,H)}
+  if(t.weather==='Ventania'||Math.abs(t.wind||0)>1){X.fillStyle='#ffffff08';for(let i=0;i<8;i++){let y=(performance.now()/12+i*90)%H;X.fillRect(0,y,W,2)}}
 }
 
 function drawHud(t){
@@ -726,7 +767,7 @@ function drawHud(t){
   X.fillStyle='#fff';X.fillText(`${world.score.toString().padStart(6,'0')}`,textX+300,48);
   X.fillStyle='#bfe5e4';X.font='600 15px sans-serif';
   const chal=t.ice?'Gelo escorregadio':t.challenge==='vento'?'Vento forte':t.leafStorm?'Tempestade de folhas':t.heat?'Calor intenso':'—';
-  X.fillText(`${t.season} · ${t.night?'Noite':'Dia'} · ${t.weather} · ${chal}`,textX,74);
+  X.fillText(`${t.season} · ${t.dayPart||(t.night?'Noite':'Dia')} · ${t.weather} · ${chal}`,textX,74);
   X.textAlign='right';X.fillStyle='#fff';X.font='800 22px sans-serif';
   X.fillText(`${Math.max(0,Math.ceil(world.time-elapsed))}s`,barX+barW-18,58);X.textAlign='left';
   if(player.checkpoint){X.fillStyle='#4affb0';X.font='700 14px sans-serif';X.fillText('⚑ checkpoint',textX+430,48)}
@@ -738,7 +779,7 @@ function victory(){
   setTimeout(()=>{
     setPlaying(false);
     ui.title.textContent=`Fase ${level+1} concluída!`;
-    ui.score.innerHTML=`Núcleos: <b>${world.coinsGot}</b><br>Pontuação: <b>${world.score}</b><br>Vidas: <b>${lives}</b><br>Clima: <b>${world.t.season} · ${world.t.weather}</b>`;
+    ui.score.innerHTML=`Núcleos: <b>${world.coinsGot}</b><br>Pontuação: <b>${world.score}</b><br>Vidas: <b>${lives}</b><br>Clima: <b>${world.t.season} · ${world.t.dayPart||''} · ${world.t.weather}</b>`;
     ui.result.classList.remove('hidden');waveAnim=0;
   },900);
 }
@@ -800,7 +841,10 @@ ui.volSfx.oninput=()=>{vols.sfx=+ui.volSfx.value/100;persistVols()};
 document.querySelector('#play').onclick=()=>{level=0;lives=3;startLevel({resetLives:true})};
 document.querySelector('#continue').onclick=()=>{
   loadSave();level=saveData?.level||0;lives=saveData?.lives||3;
-  startLevel({checkpoint:saveData?.checkpoint||null,keepScore:true});
+  const cp=saveData?.checkpoint||null;
+  // Mantém clima/layout só se houver checkpoint da mesma run; senão gera mundo novo
+  const resume=cp?{...cp,worldSeed:cp.worldSeed??saveData?.worldSeed??null}:null;
+  startLevel({checkpoint:resume,keepScore:true});
 };
 document.querySelector('#next').onclick=()=>{level++;startLevel()};
 document.querySelector('#retry').onclick=()=>{level=0;lives=3;startLevel({resetLives:true})};
