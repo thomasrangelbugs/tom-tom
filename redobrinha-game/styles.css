@@ -30,12 +30,20 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 .panel{
   position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
   text-align:center;padding:clamp(12px,3vw,28px);background:linear-gradient(135deg,#0a1424ee,#1a2740d9);
-  backdrop-filter:blur(8px);z-index:5;overflow:auto;-webkit-overflow-scrolling:touch;
+  backdrop-filter:blur(8px);z-index:5;overflow:hidden;-webkit-overflow-scrolling:touch;
 }
 .panel.hidden{display:none}
 .menu-fox{
-  width:min(120px,18vw);height:auto;image-rendering:auto;filter:drop-shadow(0 8px 18px #0008);
-  margin-bottom:4px;animation:bob 1.8s ease-in-out infinite;
+  /* caixa fixa: troca de frame não muda layout / não cria scroll */
+  width:min(120px,18vw);
+  height:min(160px,24vw);
+  object-fit:contain;
+  object-position:center bottom;
+  image-rendering:auto;
+  filter:drop-shadow(0 8px 18px #0008);
+  margin-bottom:4px;
+  flex:0 0 auto;
+  animation:bob 1.8s ease-in-out infinite;
 }
 @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
 .eyebrow{font-size:clamp(10px,2.2vw,13px);letter-spacing:.35em;color:var(--mint);font-weight:800;margin:8px}
