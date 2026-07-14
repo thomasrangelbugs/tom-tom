@@ -67,7 +67,9 @@ const SPR={
   magic:loadSeries('magic',6),
   inspect:loadSeries('inspect',6)
 };
-const SPRITE_H=100,SPRITE_H_BIG=130,CROUCH_H=84,CROUCH_H_BIG=110;
+// Altura de desenho alinhada aos frames (96px no slice)
+const SPRITE_H=96,SPRITE_H_BIG=120,CROUCH_H=78,CROUCH_H_BIG=98;
+const SPRITE_REF_H=96; // naturalHeight padronizado no slice
 const IDLE_POOL=['pocket','think','look','wave','sit','surprise','magic'];
 
 function applyHeight(p,crouch){
@@ -1011,9 +1013,13 @@ function drawPlayer(){
   if(p.dying)return;
   if(p.inv&&Math.floor(p.inv*10)%2)return;
   let frame=pickAnimFrame();
-  let hBase=p.h,drawH=hBase*p.squash,drawW;
-  if(frame?.complete&&frame.naturalWidth)drawW=drawH*(frame.naturalWidth/frame.naturalHeight);
-  else drawW=hBase*.95*p.squash;
+  // Escala única pela altura de referência do slice (evita idle/magia gigantes)
+  const refH=(frame?.naturalHeight||SPRITE_REF_H);
+  const scale=(p.h*p.squash)/refH;
+  let drawH=refH*scale,drawW=(frame?.naturalWidth||refH*.7)*scale;
+  // Limita largura pra poses largas (mapa/lupa) não estourarem
+  const maxW=p.h*1.15*p.squash;
+  if(drawW>maxW){const k=maxW/drawW;drawW*=k;drawH*=k}
   let bob=(p.anim==='walk'||p.anim==='run')?Math.sin(p.frame*Math.PI)*.5*Math.min(1,Math.abs(p.vx)/200)*4:0;
   let ox=p.x+p.w/2,oy=p.y+p.h;
   X.save();X.translate(ox,oy-bob);
@@ -1022,14 +1028,15 @@ function drawPlayer(){
   const flip=artFacesLeft?(p.face>0):(p.face<0);
   if(flip)X.scale(-1,1);
   let lean=Math.max(-.08,Math.min(.08,p.vx/4500));X.rotate(lean);
+  // Desenho nítido (sem blur do scale + sem shadow no sprite)
+  X.imageSmoothingEnabled=true;
+  X.imageSmoothingQuality='high';
   if(p.big){
+    // glow elétrico separado (não desfocando o personagem)
     const t=performance.now()/180;
-    const pulse=18+Math.sin(t)*8;
-    X.shadowColor='#6ec8ff';X.shadowBlur=pulse;
-    // arco elétrico ao redor
     X.save();
-    X.globalAlpha=.45+.25*Math.sin(t*2);
-    X.strokeStyle='#9ad8ff';X.lineWidth=2;
+    X.globalAlpha=.35+.2*Math.sin(t*2);
+    X.strokeStyle='#9ad8ff';X.lineWidth=2.5;
     for(let i=0;i<3;i++){
       const a=t+i*2.1;
       X.beginPath();
@@ -1042,8 +1049,6 @@ function drawPlayer(){
   }
   if(frame?.complete&&frame.naturalWidth)X.drawImage(frame,-drawW/2,-drawH,drawW,drawH);
   if(p.big){
-    // faíscas rápidas
-    X.shadowBlur=0;
     X.fillStyle='#ffffffcc';
     for(let i=0;i<4;i++){
       const a=performance.now()/90+i*1.7;
@@ -1051,7 +1056,6 @@ function drawPlayer(){
       X.fillRect(sx,sy,2,2);
     }
   }
-  X.shadowBlur=0;X.shadowColor='transparent';
   X.restore();
 }
 

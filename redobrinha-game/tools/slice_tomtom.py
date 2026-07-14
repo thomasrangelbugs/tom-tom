@@ -1,4 +1,4 @@
-"""Slice Tom-Tom spritesheet into animation folders using content detection."""
+"""Slice Tom-Tom spritesheet with uniform frame height (no giant/tiny frames)."""
 from PIL import Image
 import json
 from pathlib import Path
@@ -6,18 +6,19 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "assets" / "tomtom-spritesheet.png"
 OUT = ROOT / "assets" / "sprites"
+# Altura fixa de todos os frames (pés alinhados embaixo)
+FRAME_H = 96
 
-# Row names (top → bottom). Row 2 is run-right, row 3 is run-left art.
 ROW_NAMES = [
-    "idle_front",  # 6
-    "run",         # 8 right
-    "walk",        # 8 left-facing art
-    "wave",        # 4
-    "jump",        # 5
-    "emotion",     # 8 hurt/crouch/getup
-    "think",       # 6 idle variants (extra folder)
-    "magic",       # 6 laptop
-    "inspect",     # 6 magnify + thumbs
+    "idle_front",
+    "run",
+    "walk",
+    "wave",
+    "jump",
+    "emotion",
+    "think",
+    "magic",
+    "inspect",
 ]
 
 def is_content(px, x, y):
@@ -28,8 +29,7 @@ def find_bands(im):
     w, h = im.size
     px = im.load()
     rows = [any(is_content(px, x, y) for x in range(w)) for y in range(h)]
-    bands = []
-    inb = False
+    bands, inb = [], False
     for i, v in enumerate(rows):
         if v and not inb:
             s = i
@@ -45,8 +45,7 @@ def find_segs(im, y0, y1):
     w, _ = im.size
     px = im.load()
     cols = [any(is_content(px, x, y) for y in range(y0, y1 + 1)) for x in range(w)]
-    segs = []
-    inb = False
+    segs, inb = [], False
     for x, v in enumerate(cols):
         if v and not inb:
             s = x
@@ -73,40 +72,42 @@ def main():
     bands = find_bands(im)
     assert len(bands) == len(ROW_NAMES), f"Expected {len(ROW_NAMES)} rows, got {len(bands)}"
 
-    # remove old animation folders we manage + think
-    for name in set(ROW_NAMES) | {"idle_front", "run", "walk", "wave", "jump", "emotion", "magic", "inspect", "think"}:
+    for name in ROW_NAMES:
         d = OUT / name
-        if d.exists():
-            for old in d.glob("*.png"):
-                old.unlink()
         d.mkdir(parents=True, exist_ok=True)
+        for old in d.glob("*.png"):
+            old.unlink()
 
     manifest = {}
     for name, (y0, y1) in zip(ROW_NAMES, bands):
         segs = find_segs(im, y0, y1)
         files = []
-        max_w = max_h = 0
+        max_w = 0
         for i, (x0, x1) in enumerate(segs):
-            # slight pad
-            pad = 2
+            pad_x = 2
+            # Mantém a altura da faixa inteira (não corta em cima/baixo)
             cell = im.crop((
-                max(0, x0 - pad),
-                max(0, y0 - pad),
-                min(im.width, x1 + 1 + pad),
-                min(im.height, y1 + 1 + pad),
+                max(0, x0 - pad_x),
+                y0,
+                min(im.width, x1 + 1 + pad_x),
+                y1 + 1,
             ))
-            bbox = cell.getbbox()
-            if bbox:
-                cell = cell.crop(bbox)
-            out = OUT / name / f"{i}.png"
-            cell.save(out)
-            files.append(f"sprites/{name}/{i}.png")
-            max_w = max(max_w, cell.width)
-            max_h = max(max_h, cell.height)
-            print(f"{name}/{i}.png {cell.size}")
-        manifest[name] = {"count": len(segs), "w": max_w, "h": max_h, "files": files}
+            # Alinha o conteúdo no fundo e redimensiona para FRAME_H fixo
+            canvas = Image.new("RGBA", (cell.width, FRAME_H), (0, 0, 0, 0))
+            # escala proporcional se a faixa for maior/menor que FRAME_H
+            scale = FRAME_H / cell.height
+            new_w = max(1, int(round(cell.width * scale)))
+            resized = cell.resize((new_w, FRAME_H), Image.Resampling.LANCZOS)
+            canvas = Image.new("RGBA", (new_w, FRAME_H), (0, 0, 0, 0))
+            canvas.paste(resized, (0, 0), resized)
 
-    # assets/run sync
+            out = OUT / name / f"{i}.png"
+            canvas.save(out, optimize=True)
+            files.append(f"sprites/{name}/{i}.png")
+            max_w = max(max_w, canvas.width)
+            print(f"{name}/{i}.png {canvas.size}")
+        manifest[name] = {"count": len(segs), "w": max_w, "h": FRAME_H, "files": files}
+
     run_dir = ROOT / "assets" / "run"
     run_dir.mkdir(exist_ok=True)
     for old in run_dir.glob("*.png"):
