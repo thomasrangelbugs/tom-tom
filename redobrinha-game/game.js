@@ -66,7 +66,7 @@ const SPR={
 };
 const brandLogo=new Image();brandLogo.src='assets/redobrai-logo.png';
 const brandCorp=new Image();brandCorp.src='assets/redobrai-corp-logo.png';
-const SPRITE_H=100,SPRITE_H_BIG=130,CROUCH_H=56,CROUCH_H_BIG=72;
+const SPRITE_H=100,SPRITE_H_BIG=130,CROUCH_H=82,CROUCH_H_BIG=108;
 const IDLE_POOL=['pocket','think','look','wave','sit','surprise','magic'];
 
 function applyHeight(p,crouch){
@@ -75,7 +75,7 @@ function applyHeight(p,crouch){
   const feet=p.y+p.h;
   p.crouch=!!crouch;
   p.h=want;
-  p.w=crouch?(p.big?64:62):(p.big?70:56);
+  p.w=crouch?(p.big?72:66):(p.big?70:56);
   p.y=feet-p.h;
 }
 
