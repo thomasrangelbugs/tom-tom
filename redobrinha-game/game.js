@@ -55,7 +55,7 @@ function setPlaying(on){
 const SAVE_KEY='tomtom_save_v1';
 const vols={music:.42,sfx:.55};
 
-function loadSeries(folder,n){return Array.from({length:n},(_,i)=>{const img=new Image();img.src=`assets/sprites/${folder}/${i}.png?v=4`;return img})}
+function loadSeries(folder,n){return Array.from({length:n},(_,i)=>{const img=new Image();img.src=`assets/sprites/${folder}/${i}.png?v=orig`;return img})}
 const SPR={
   idleFront:loadSeries('idle_front',6),
   run:loadSeries('run',8),
@@ -66,9 +66,9 @@ const SPR={
   think:loadSeries('think',6)
   // magic/inspect (prancheta/luneta) vieram cortados na cintura — não usar
 };
-// Altura de desenho alinhada aos frames (96px no slice)
-const SPRITE_H=96,SPRITE_H_BIG=120,CROUCH_H=78,CROUCH_H_BIG=98;
-const SPRITE_REF_H=96; // naturalHeight padronizado no slice
+// Hitbox do jogo; sprites nativos têm ~168px (sheet original)
+const SPRITE_H=100,SPRITE_H_BIG=125,CROUCH_H=80,CROUCH_H_BIG=100;
+const SPRITE_REF_H=168; // altura nativa dos frames (sem rescale no slice)
 // Ações especiais (entre elas fica 3s só piscando)
 const IDLE_ACTIONS=['think','wave','flex','surprise'];
 const IDLE_REST=3;
@@ -1020,7 +1020,8 @@ function drawPlayer(){
   if(p.dying)return;
   if(p.inv&&Math.floor(p.inv*10)%2)return;
   let frame=pickAnimFrame();
-  const refH=SPRITE_REF_H;
+  // Escala a partir da altura nativa do frame (sheet original, sem reamostragem)
+  const refH=(frame?.naturalHeight||SPRITE_REF_H);
   let scale=(p.h*p.squash)/refH;
   let drawW=(frame?.naturalWidth||60)*scale;
   let drawH=refH*scale;

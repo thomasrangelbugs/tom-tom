@@ -1,8 +1,8 @@
 {
   "idle_front": {
     "count": 6,
-    "w": 59,
-    "h": 96,
+    "w": 103,
+    "h": 168,
     "files": [
       "sprites/idle_front/0.png",
       "sprites/idle_front/1.png",
@@ -10,12 +10,13 @@
       "sprites/idle_front/3.png",
       "sprites/idle_front/4.png",
       "sprites/idle_front/5.png"
-    ]
+    ],
+    "source": "assests.png (original, no rescale)"
   },
   "run": {
     "count": 8,
-    "w": 81,
-    "h": 96,
+    "w": 145,
+    "h": 168,
     "files": [
       "sprites/run/0.png",
       "sprites/run/1.png",
@@ -25,12 +26,13 @@
       "sprites/run/5.png",
       "sprites/run/6.png",
       "sprites/run/7.png"
-    ]
+    ],
+    "source": "assests.png (original, no rescale)"
   },
   "walk": {
     "count": 8,
-    "w": 81,
-    "h": 96,
+    "w": 145,
+    "h": 168,
     "files": [
       "sprites/walk/0.png",
       "sprites/walk/1.png",
@@ -40,35 +42,38 @@
       "sprites/walk/5.png",
       "sprites/walk/6.png",
       "sprites/walk/7.png"
-    ]
+    ],
+    "source": "assests.png (original, no rescale)"
   },
   "wave": {
     "count": 4,
-    "w": 66,
-    "h": 96,
+    "w": 118,
+    "h": 168,
     "files": [
       "sprites/wave/0.png",
       "sprites/wave/1.png",
       "sprites/wave/2.png",
       "sprites/wave/3.png"
-    ]
+    ],
+    "source": "assests.png (original, no rescale)"
   },
   "jump": {
     "count": 5,
-    "w": 84,
-    "h": 96,
+    "w": 150,
+    "h": 168,
     "files": [
       "sprites/jump/0.png",
       "sprites/jump/1.png",
       "sprites/jump/2.png",
       "sprites/jump/3.png",
       "sprites/jump/4.png"
-    ]
+    ],
+    "source": "assests.png (original, no rescale)"
   },
   "emotion": {
     "count": 8,
-    "w": 84,
-    "h": 96,
+    "w": 150,
+    "h": 168,
     "files": [
       "sprites/emotion/0.png",
       "sprites/emotion/1.png",
@@ -78,12 +83,13 @@
       "sprites/emotion/5.png",
       "sprites/emotion/6.png",
       "sprites/emotion/7.png"
-    ]
+    ],
+    "source": "assests.png (original, no rescale)"
   },
   "think": {
     "count": 6,
-    "w": 62,
-    "h": 96,
+    "w": 107,
+    "h": 168,
     "files": [
       "sprites/think/0.png",
       "sprites/think/1.png",
@@ -91,32 +97,7 @@
       "sprites/think/3.png",
       "sprites/think/4.png",
       "sprites/think/5.png"
-    ]
-  },
-  "magic": {
-    "count": 6,
-    "w": 83,
-    "h": 96,
-    "files": [
-      "sprites/magic/0.png",
-      "sprites/magic/1.png",
-      "sprites/magic/2.png",
-      "sprites/magic/3.png",
-      "sprites/magic/4.png",
-      "sprites/magic/5.png"
-    ]
-  },
-  "inspect": {
-    "count": 6,
-    "w": 77,
-    "h": 96,
-    "files": [
-      "sprites/inspect/0.png",
-      "sprites/inspect/1.png",
-      "sprites/inspect/2.png",
-      "sprites/inspect/3.png",
-      "sprites/inspect/4.png",
-      "sprites/inspect/5.png"
-    ]
+    ],
+    "source": "assests.png (original, no rescale)"
   }
 }

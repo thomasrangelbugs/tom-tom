@@ -1,44 +1,48 @@
-"""Slice Tom-Tom spritesheet: mesma escala, pés na base, preserva roupa escura."""
+"""Fatiar sprites do sheet ORIGINAL (assests.png) sem redimensionar / perder qualidade."""
 from PIL import Image
 import json
 from pathlib import Path
 from collections import deque
+import shutil
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "assets" / "tomtom-spritesheet.png"
+PROJ = ROOT.parent
+SRC_CANDIDATES = [
+    PROJ / "assests.png",
+    ROOT / "assets" / "assests.png",
+    ROOT / "assets" / "tomtom-spritesheet.png",
+]
 OUT = ROOT / "assets" / "sprites"
-FRAME_H = 96
-FRAME_MAX_W = 110
 
-# magic/inspect (prancheta/luneta) vieram cortados na cintura — fora
+# Só faixas de corpo inteiro (prancheta/luneta cortadas — fora)
 ROW_NAMES = [
-    "idle_front",
-    "run",
-    "walk",
-    "wave",
-    "jump",
-    "emotion",
-    "think",
+    "idle_front",  # 6
+    "run",         # 8
+    "walk",        # 8
+    "wave",        # 4
+    "jump",        # 5
+    "emotion",     # 8
+    "think",       # 6
 ]
 
-# Faixas detectadas no sheet 840x1024 (fundo preto puro)
+# Bandas do sheet 1536x1872 (altura uniforme 168)
 FIXED_BANDS = [
-    (11, 101),
-    (125, 215),
-    (239, 328),
-    (353, 443),
-    (467, 556),
-    (581, 670),
-    (694, 784),
+    (20, 187),
+    (228, 395),
+    (436, 603),
+    (644, 811),
+    (852, 1019),
+    (1060, 1227),
+    (1268, 1435),
 ]
+
 
 def is_sheet_bg(r, g, b, a=255, thr=10):
-    # só preto do fundo do sheet (roupa azul/marrom escura fica)
     return a < 8 or (r <= thr and g <= thr and b <= thr)
 
+
 def flood_clear_cell(cell, thr=10):
-    """Remove fundo preto a partir dos cantos da célula."""
-    cell = cell.convert("RGBA")
+    cell = cell.copy()
     w, h = cell.size
     px = cell.load()
     seen = [[False] * w for _ in range(h)]
@@ -52,9 +56,6 @@ def flood_clear_cell(cell, thr=10):
             seen[y][x] = True
             q.append((x, y))
 
-    for x, y in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)):
-        try_push(x, y)
-    # também varre a borda inteira (mais seguro)
     for x in range(w):
         try_push(x, 0)
         try_push(x, h - 1)
@@ -69,10 +70,12 @@ def flood_clear_cell(cell, thr=10):
             try_push(nx, ny)
     return cell
 
+
 def is_content_pixel(r, g, b, a):
     return a > 16 and not is_sheet_bg(r, g, b, a, thr=10)
 
-def find_segs(im, y0, y1):
+
+def find_segs(im, y0, y1, min_w=60):
     w, _ = im.size
     px = im.load()
     cols = [any(is_content_pixel(*px[x, y]) for y in range(y0, y1 + 1)) for x in range(w)]
@@ -86,11 +89,12 @@ def find_segs(im, y0, y1):
             inb = False
     if inb:
         segs.append((s, w - 1))
-    # ignora ruído entre frames
-    return [(a, b) for a, b in segs if (b - a) >= 36]
+    return [(a, b) for a, b in segs if (b - a) >= min_w]
 
-def extract_content(im, x0, x1, y0, y1):
-    pad = 3
+
+def extract_frame(im, x0, x1, y0, y1):
+    """Recorte 1:1 da faixa — altura completa, só limpa fundo e laterais vazias."""
+    pad = 2
     cell = im.crop((
         max(0, x0 - pad),
         y0,
@@ -100,43 +104,25 @@ def extract_content(im, x0, x1, y0, y1):
     cell = flood_clear_cell(cell, thr=10)
     bbox = cell.getbbox()
     if not bbox:
-        return Image.new("RGBA", (40, 40), (0, 0, 0, 0))
-    l, t, r, b = bbox
-    return cell.crop((max(0, l - 1), max(0, t - 1), min(cell.width, r + 1), min(cell.height, b + 1)))
+        return Image.new("RGBA", (80, y1 - y0 + 1), (0, 0, 0, 0))
+    l, _t, r, _b = bbox
+    # Mantém altura FULL da faixa (pés alinhados como no original)
+    return cell.crop((l, 0, r, cell.height))
 
-def pack_frame(content, body_scale):
-    nw = max(1, int(round(content.width * body_scale)))
-    nh = max(1, int(round(content.height * body_scale)))
-    if nh > FRAME_H - 2:
-        k = (FRAME_H - 2) / nh
-        nw = max(1, int(round(nw * k)))
-        nh = max(1, int(round(nh * k)))
-    if nw > FRAME_MAX_W:
-        k = FRAME_MAX_W / nw
-        nw = max(1, int(round(nw * k)))
-        nh = max(1, int(round(nh * k)))
-    resized = content.resize((nw, nh), Image.Resampling.LANCZOS)
-    canvas_w = max(nw, 48)
-    canvas = Image.new("RGBA", (canvas_w, FRAME_H), (0, 0, 0, 0))
-    x = (canvas_w - nw) // 2
-    y = FRAME_H - nh
-    canvas.paste(resized, (x, y), resized)
-    return canvas
 
 def main():
-    im = Image.open(SRC).convert("RGBA")
-    bands = FIXED_BANDS
-    assert len(bands) == len(ROW_NAMES)
+    src = next((p for p in SRC_CANDIDATES if p.exists()), None)
+    if not src:
+        raise SystemExit("assests.png não encontrado")
 
-    idle_y0, idle_y1 = bands[0]
-    idle_segs = find_segs(im, idle_y0, idle_y1)
-    idle_heights = []
-    for x0, x1 in idle_segs:
-        c = extract_content(im, x0, x1, idle_y0, idle_y1)
-        idle_heights.append(c.height)
-    avg_stand = sum(idle_heights) / max(1, len(idle_heights))
-    body_scale = (FRAME_H * 0.92) / avg_stand
-    print(f"avg_stand={avg_stand:.1f} body_scale={body_scale:.3f} segs_idle={len(idle_segs)}")
+    # Copia o original intacto para assets do jogo
+    dest_sheet = ROOT / "assets" / "tomtom-spritesheet.png"
+    if src.resolve() != dest_sheet.resolve():
+        shutil.copy2(src, dest_sheet)
+        print(f"Copied original -> {dest_sheet}")
+
+    im = Image.open(src).convert("RGBA")
+    print(f"Source {src.name} {im.size} {im.mode}")
 
     for name in ROW_NAMES:
         d = OUT / name
@@ -144,32 +130,49 @@ def main():
         for old in d.glob("*.png"):
             old.unlink()
 
+    # Remove pastas cortadas se existirem
+    for dead in ("magic", "inspect"):
+        d = OUT / dead
+        if d.exists():
+            for f in d.glob("*.png"):
+                f.unlink()
+
     manifest = {}
-    for name, (y0, y1) in zip(ROW_NAMES, bands):
+    frame_h = FIXED_BANDS[0][1] - FIXED_BANDS[0][0] + 1
+
+    for name, (y0, y1) in zip(ROW_NAMES, FIXED_BANDS):
         segs = find_segs(im, y0, y1)
         files = []
         max_w = 0
         for i, (x0, x1) in enumerate(segs):
-            content = extract_content(im, x0, x1, y0, y1)
-            canvas = pack_frame(content, body_scale)
+            frame = extract_frame(im, x0, x1, y0, y1)
+            # PNG sem reamostragem — pixels originais
             out = OUT / name / f"{i}.png"
-            canvas.save(out, optimize=True)
+            frame.save(out, format="PNG", optimize=False)
             files.append(f"sprites/{name}/{i}.png")
-            max_w = max(max_w, canvas.width)
-            print(f"{name}/{i}.png {canvas.size} src={content.size}")
-        manifest[name] = {"count": len(segs), "w": max_w, "h": FRAME_H, "files": files}
+            max_w = max(max_w, frame.width)
+            print(f"{name}/{i}.png {frame.size}")
+        manifest[name] = {
+            "count": len(segs),
+            "w": max_w,
+            "h": frame_h,
+            "files": files,
+            "source": "assests.png (original, no rescale)",
+        }
 
     run_dir = ROOT / "assets" / "run"
     run_dir.mkdir(exist_ok=True)
     for old in run_dir.glob("*.png"):
         old.unlink()
     for i in range(manifest["run"]["count"]):
-        Image.open(OUT / "run" / f"{i}.png").save(run_dir / f"{i}.png")
+        shutil.copy2(OUT / "run" / f"{i}.png", run_dir / f"{i}.png")
 
     (ROOT / "assets" / "sprite-manifest.json").write_text(
         json.dumps(manifest, indent=2), encoding="utf-8"
     )
     print("OK", json.dumps({k: v["count"] for k, v in manifest.items()}))
+    print(f"FRAME_H={frame_h} (native)")
+
 
 if __name__ == "__main__":
     main()
