@@ -1,19 +1,20 @@
 {
   "idle_front": {
-    "count": 5,
-    "w": 74,
-    "h": 111,
+    "count": 6,
+    "w": 63,
+    "h": 95,
     "files": [
       "sprites/idle_front/0.png",
       "sprites/idle_front/1.png",
       "sprites/idle_front/2.png",
       "sprites/idle_front/3.png",
-      "sprites/idle_front/4.png"
+      "sprites/idle_front/4.png",
+      "sprites/idle_front/5.png"
     ]
   },
   "run": {
     "count": 8,
-    "w": 102,
+    "w": 81,
     "h": 95,
     "files": [
       "sprites/run/0.png",
@@ -28,7 +29,7 @@
   },
   "walk": {
     "count": 8,
-    "w": 105,
+    "w": 81,
     "h": 95,
     "files": [
       "sprites/walk/0.png",
@@ -43,8 +44,8 @@
   },
   "wave": {
     "count": 4,
-    "w": 73,
-    "h": 107,
+    "w": 76,
+    "h": 95,
     "files": [
       "sprites/wave/0.png",
       "sprites/wave/1.png",
@@ -54,8 +55,8 @@
   },
   "jump": {
     "count": 5,
-    "w": 94,
-    "h": 90,
+    "w": 83,
+    "h": 95,
     "files": [
       "sprites/jump/0.png",
       "sprites/jump/1.png",
@@ -66,8 +67,8 @@
   },
   "emotion": {
     "count": 8,
-    "w": 85,
-    "h": 109,
+    "w": 83,
+    "h": 96,
     "files": [
       "sprites/emotion/0.png",
       "sprites/emotion/1.png",
@@ -79,10 +80,23 @@
       "sprites/emotion/7.png"
     ]
   },
+  "think": {
+    "count": 6,
+    "w": 61,
+    "h": 95,
+    "files": [
+      "sprites/think/0.png",
+      "sprites/think/1.png",
+      "sprites/think/2.png",
+      "sprites/think/3.png",
+      "sprites/think/4.png",
+      "sprites/think/5.png"
+    ]
+  },
   "magic": {
     "count": 6,
-    "w": 98,
-    "h": 113,
+    "w": 83,
+    "h": 95,
     "files": [
       "sprites/magic/0.png",
       "sprites/magic/1.png",
@@ -94,8 +108,8 @@
   },
   "inspect": {
     "count": 6,
-    "w": 87,
-    "h": 110,
+    "w": 71,
+    "h": 94,
     "files": [
       "sprites/inspect/0.png",
       "sprites/inspect/1.png",

@@ -3,25 +3,22 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-  <meta name="theme-color" content="#081a25">
+  <meta name="theme-color" content="#0a1424">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
-  <title>Redobrinha — A Jornada da Conexão</title>
+  <title>Tom-Tom — A Jornada do Thor</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <main id="shell">
-    <canvas id="game" width="1280" height="720" aria-label="Jogo Redobrinha"></canvas>
+    <canvas id="game" width="1280" height="720" aria-label="Jogo Tom-Tom"></canvas>
 
     <section id="start" class="panel">
-      <a class="brand-link brand-link-menu" href="https://www.redobrai.com/" target="_blank" rel="noopener noreferrer" title="Conhecer a Redobrai">
-        <img src="assets/redobrai-corp-logo.png" alt="Redobrai Corp">
-      </a>
-      <img id="menuFox" class="menu-fox" src="assets/sprites/idle_front/0.png" alt="Redobrinha">
-      <p class="eyebrow">REDOBRAI APRESENTA</p>
-      <h1>Redobrinha</h1>
-      <h2>A Jornada da Conexão</h2>
-      <p>Recupere os núcleos, quebre blocos, desvie dos inimigos e atravesse a fenda.</p>
+      <img id="menuFox" class="menu-fox" src="assets/sprites/idle_front/0.png" alt="Tom-Tom">
+      <p class="eyebrow">THOR GAMES</p>
+      <h1>Tom-Tom</h1>
+      <h2>A Jornada do Thor</h2>
+      <p>Colete as moedas de ouro, quebre blocos, desvie dos inimigos e atravesse o portal.</p>
       <div class="actions">
         <button id="play">INICIAR JORNADA</button>
         <button id="playAi" class="ghost">MODO IA</button>
@@ -33,12 +30,11 @@
       </div>
       <small class="desk-only">← → / A D · ↓ / S abaixar · Espaço pular (duplo) · Shift correr · M mutar · F tela cheia</small>
       <small class="mobile-hint">Celular: ◀▶ esquerda · ⚡▲ direita · ▼ abaixar sob o pulo · gire na horizontal</small>
-      <a class="site-cta" href="https://www.redobrai.com/" target="_blank" rel="noopener noreferrer">Conhecer a Redobrai · redobrai.com</a>
     </section>
 
     <section id="result" class="panel hidden">
-      <img id="resultFox" class="menu-fox" src="assets/sprites/wave/0.png" alt="">
-      <p class="eyebrow">CONEXÃO RESTAURADA</p>
+      <img id="resultFox" class="menu-fox" src="assets/sprites/inspect/5.png" alt="">
+      <p class="eyebrow">VITÓRIA DO THOR</p>
       <h2 id="resultTitle">Fase concluída!</h2>
       <div id="scoreCard"></div>
       <button id="next">PRÓXIMA FASE</button>
@@ -46,7 +42,7 @@
 
     <section id="gameover" class="panel hidden">
       <img class="menu-fox" src="assets/sprites/emotion/0.png" alt="">
-      <p class="eyebrow">CONEXÃO PERDIDA</p>
+      <p class="eyebrow">CAIUSTE DO TRONO</p>
       <h2>Game Over</h2>
       <div id="overCard"></div>
       <button id="retry">TENTAR DE NOVO</button>
@@ -57,8 +53,6 @@
       <strong>Gire o celular</strong>
       <p>O jogo funciona melhor na horizontal.</p>
     </div>
-
-    <a id="brandHud" href="https://www.redobrai.com/" target="_blank" rel="noopener noreferrer" title="Conhecer a Redobrai — redobrai.com" aria-label="Conhecer a Redobrai"></a>
   </main>
 
   <div id="hudChrome" aria-hidden="false">
