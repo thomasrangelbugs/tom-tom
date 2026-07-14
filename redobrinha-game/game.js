@@ -70,7 +70,8 @@ const SPR={
 // Altura de desenho alinhada aos frames (96px no slice)
 const SPRITE_H=96,SPRITE_H_BIG=120,CROUCH_H=78,CROUCH_H_BIG=98;
 const SPRITE_REF_H=96; // naturalHeight padronizado no slice
-const IDLE_POOL=['pocket','think','look','wave','sit','surprise','magic'];
+// Idle “em pé” (evita mapa/lupa/sentado que pareciam exagerados)
+const IDLE_POOL=['pocket','think','wave','surprise'];
 
 function applyHeight(p,crouch){
   const want=p.big?(crouch?CROUCH_H_BIG:SPRITE_H_BIG):(crouch?CROUCH_H:SPRITE_H);
