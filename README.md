@@ -1,4 +1,4 @@
-# Tom-Tom — Senhor dos Raios
+﻿# Tom-Tom — Senhor dos Raios
 
 Jogo de plataforma procedural em Canvas, com tema inspirado em Thor: colete raios, obtenha o Mjölnir, quebre blocos e atravesse portais.
 
@@ -63,6 +63,15 @@ Não foi identificado script de teste automatizado. Valide manualmente os fluxos
 - Áudio/tela cheia podem exigir gesto do usuário.
 - Confirme direitos de músicas e referências visuais.
 
+
+## Requisitos
+
+- Navegador moderno (Chrome, Edge, Firefox ou Safari atualizado)
+- Conexão com a internet apenas para recursos externos integrados, quando aplicável
 ## Repositório
 
-[redobrai-del/thomas-projetos](https://github.com/redobrai-del/thomas-projetos)
+[thomasrangelbugs/tom-tom](https://github.com/thomasrangelbugs/tom-tom)
+
+## Autor
+
+**Thomas Rangel Bugs** — [github.com/thomasrangelbugs](https://github.com/thomasrangelbugs)
